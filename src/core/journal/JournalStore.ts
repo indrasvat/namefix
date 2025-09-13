@@ -1,0 +1,83 @@
+import fs from 'node:fs/promises';
+import fscb from 'node:fs';
+import path from 'node:path';
+import { librarySupportPath } from '../../utils/paths.js';
+import type { IJournalStore } from '../../types/index';
+import { FsSafe } from '../fs/FsSafe.js';
+
+type Entry = { from: string; to: string; ts: number };
+
+const APP_DIR = librarySupportPath('namefix');
+const JOURNAL_PATH = path.join(APP_DIR, 'journal.ndjson');
+
+export class JournalStore implements IJournalStore {
+  private cache: Entry[] = [];
+  constructor(private readonly fsSafe: FsSafe) {}
+
+  private async ensure() { await fs.mkdir(APP_DIR, { recursive: true }); }
+
+  private async load(): Promise<Entry[]> {
+    await this.ensure();
+    try {
+      const data = await fs.readFile(JOURNAL_PATH, 'utf8');
+      const lines = data.split(/\r?\n/).filter(Boolean);
+      this.cache = lines.map((l) => JSON.parse(l));
+    } catch (e: any) {
+      if (e && e.code === 'ENOENT') this.cache = [];
+      else this.cache = [];
+    }
+    return this.cache;
+  }
+
+  async record(from: string, to: string): Promise<void> {
+    await this.ensure();
+    const entry: Entry = { from, to, ts: Date.now() };
+    await fs.appendFile(JOURNAL_PATH, JSON.stringify(entry) + '\n', 'utf8');
+    this.cache.push(entry);
+  }
+
+  async undo(): Promise<{ ok: boolean; reason?: string }> {
+    if (!this.cache.length) await this.load();
+    const last = this.cache.pop();
+    if (!last) return { ok: false, reason: 'empty' };
+    try {
+      const target = await this.restoreTarget(last);
+      await this.fsSafe.atomicRename(last.to, target);
+      await this.rewrite();
+      return { ok: true };
+    } catch (e: any) {
+      return { ok: false, reason: e?.message || 'rename_failed' };
+    }
+  }
+
+  private async restoreTarget(entry: Entry): Promise<string> {
+    // If original is free, use it; else add _restored suffix
+    const exists = await existsSafe(entry.from);
+    if (!exists) return entry.from;
+    const dir = path.dirname(entry.from);
+    const ext = path.extname(entry.from);
+    const base = path.basename(entry.from, ext);
+    let n = 1;
+    let candidate = path.join(dir, `${base}_restored${ext}`);
+    while (await existsSafe(candidate)) {
+      n++;
+      candidate = path.join(dir, `${base}_restored_${n}${ext}`);
+    }
+    return candidate;
+  }
+
+  private async rewrite() {
+    const tmp = JOURNAL_PATH + '.tmp';
+    const data = this.cache.map((e) => JSON.stringify(e)).join('\n') + (this.cache.length ? '\n' : '');
+    await fs.writeFile(tmp, data, 'utf8');
+    await fs.rename(tmp, JOURNAL_PATH);
+  }
+
+  dispose(): void | Promise<void> {
+    // nothing
+  }
+}
+
+async function existsSafe(p: string): Promise<boolean> {
+  try { await fs.access(p); return true; } catch { return false; }
+}
