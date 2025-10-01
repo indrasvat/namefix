@@ -3,6 +3,8 @@ import path from 'node:path';
 import { buildName, getExt } from './NameTemplate.js';
 
 export class RenameService {
+  private readonly inFlightTargets = new Set<string>();
+
   needsRename(filename: string, prefix: string): boolean {
     const base = path.basename(filename);
     const p = (prefix || 'Screenshot').trim().replace(/\s+/g, '_');
@@ -14,18 +16,33 @@ export class RenameService {
     const dir = path.dirname(srcPath);
     const ext = (stat.ext || getExt(srcPath) || '.png').replace(/^\.+/, '.');
     const base = buildName(stat.prefix || 'Screenshot', stat.birthtime ?? new Date(), ext);
-    return await this.resolveCollision(dir, base);
+    return await this.reserveTarget(dir, base);
   }
 
-  async resolveCollision(dir: string, base: string): Promise<string> {
+  release(dir: string, target: string): void {
+    this.inFlightTargets.delete(fullPath(dir, target));
+  }
+
+  private async reserveTarget(dir: string, base: string): Promise<string> {
     const { name, ext } = splitBase(base);
     let candidate = base;
     let n = 2;
-    while (await exists(path.join(dir, candidate))) {
+    while (true) {
+      const key = fullPath(dir, candidate);
+      if (this.inFlightTargets.has(key)) {
+        candidate = `${name}_${n}${ext}`;
+        n++;
+        continue;
+      }
+
+      this.inFlightTargets.add(key);
+      const occupied = await exists(path.join(dir, candidate));
+      if (!occupied) return candidate;
+
+      this.inFlightTargets.delete(key);
       candidate = `${name}_${n}${ext}`;
       n++;
     }
-    return candidate;
   }
 }
 
@@ -39,4 +56,8 @@ function escapeRegExp(s: string): string { return s.replace(/[.*+?^${}()|[\]\\]/
 
 async function exists(p: string): Promise<boolean> {
   try { await fs.access(p); return true; } catch { return false; }
+}
+
+function fullPath(dir: string, name: string): string {
+  return path.resolve(dir, name);
 }

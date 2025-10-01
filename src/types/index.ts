@@ -40,10 +40,10 @@ export interface IJournalStore extends IDispose {
 
 export interface IRenameService {
   needsRename(filename: string, prefix: string): boolean;
-  targetFor(srcPath: string, stat: { birthtime: Date; ext: string }): Promise<string> | string;
+  targetFor(srcPath: string, stat: { birthtime: Date; ext?: string; prefix?: string }): Promise<string> | string;
+  release(dir: string, target: string): void;
 }
 
 export interface IWatchService extends IDispose {
   start(onAdd: (event: WatchEvent) => void): Promise<void>;
 }
-

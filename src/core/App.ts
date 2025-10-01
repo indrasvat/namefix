@@ -105,20 +105,24 @@ export class NamefixApp {
       const dir = path.dirname(ev.path);
       const targetPath = path.join(dir, targetBase);
 
-      if (cfg.dryRun) {
-        this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, target: targetBase, status: 'preview' });
-        logger.info('preview', { from: ev.path, to: targetPath });
-        return;
-      }
       try {
-        await fsSafe.atomicRename(ev.path, targetPath);
-        await journal.record(ev.path, targetPath);
-        this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, target: targetBase, status: 'applied' });
-        eventBus.emit('file:renamed', { from: ev.path, to: targetPath });
-      } catch (e: any) {
-        logger.error(e);
-        this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, status: 'error', message: e?.message || 'rename failed' });
-        eventBus.emit('file:error', { path: ev.path, error: e });
+        if (cfg.dryRun) {
+          this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, target: targetBase, status: 'preview' });
+          logger.info('preview', { from: ev.path, to: targetPath });
+          return;
+        }
+        try {
+          await fsSafe.atomicRename(ev.path, targetPath);
+          await journal.record(ev.path, targetPath);
+          this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, target: targetBase, status: 'applied' });
+          eventBus.emit('file:renamed', { from: ev.path, to: targetPath });
+        } catch (e: any) {
+          logger.error(e);
+          this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, status: 'error', message: e?.message || 'rename failed' });
+          eventBus.emit('file:error', { path: ev.path, error: e });
+        }
+      } finally {
+        renamer.release(dir, targetBase);
       }
     });
 
@@ -170,20 +174,24 @@ export class NamefixApp {
               const dir = path.dirname(ev.path);
               const targetPath = path.join(dir, targetBase);
 
-              if (cfg.dryRun) {
-                this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, target: targetBase, status: 'preview' });
-                logger.info('preview', { from: ev.path, to: targetPath });
-                return;
-              }
               try {
-                await fsSafe.atomicRename(ev.path, targetPath);
-                await journal.record(ev.path, targetPath);
-                this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, target: targetBase, status: 'applied' });
-                eventBus.emit('file:renamed', { from: ev.path, to: targetPath });
-              } catch (e: any) {
-                logger.error(e);
-                this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, status: 'error', message: e?.message || 'rename failed' });
-                eventBus.emit('file:error', { path: ev.path, error: e });
+                if (cfg.dryRun) {
+                  this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, target: targetBase, status: 'preview' });
+                  logger.info('preview', { from: ev.path, to: targetPath });
+                  return;
+                }
+                try {
+                  await fsSafe.atomicRename(ev.path, targetPath);
+                  await journal.record(ev.path, targetPath);
+                  this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, target: targetBase, status: 'applied' });
+                  eventBus.emit('file:renamed', { from: ev.path, to: targetPath });
+                } catch (e: any) {
+                  logger.error(e);
+                  this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, status: 'error', message: e?.message || 'rename failed' });
+                  eventBus.emit('file:error', { path: ev.path, error: e });
+                }
+              } finally {
+                renamer.release(dir, targetBase);
               }
             });
             this.ui.showToast(`Now watching: ${cfg.watchDir}`, 'info');
