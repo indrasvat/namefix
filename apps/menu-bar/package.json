@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "pnpm -C ../.. build && vite",
+    "build": "pnpm -C ../.. build && vite build",
     "preview": "vite preview",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:dev": "pnpm -C ../.. build && tauri dev",
+    "tauri:build": "pnpm -C ../.. build && tauri build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.0",

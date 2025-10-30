@@ -13,6 +13,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tauri = { version = "2.9.1", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-autostart = { version = "2.2.0" }
+tokio = { version = "1.37", features = ["process", "sync", "io-util"] }
+which = "6.0"
+anyhow = "1.0"
 
 [features]
 default = ["custom-protocol"]

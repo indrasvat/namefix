@@ -26,5 +26,10 @@
         "resizable": true
       }
     ]
+  },
+  "bundle": {
+    "resources": [
+      "resources/service-bridge.mjs"
+    ]
   }
 }

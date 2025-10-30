@@ -1,48 +1,56 @@
-use serde::Serialize;
+use crate::bridge::{self, BridgeState, ServiceStatus};
+use serde::Deserialize;
 
-#[derive(Debug, Serialize, Default)]
-pub struct ServiceStatusResponse {
-    pub running: bool,
-    pub directories: Vec<String>,
-    #[serde(rename = "dryRun")]
-    pub dry_run: bool,
-}
-
-/// Placeholder response representing the eventual bridge to the Node NamefixService
 #[tauri::command]
-pub async fn get_status() -> Result<ServiceStatusResponse, String> {
-    // TODO: replace with shared service bridge (Phase 4)
-    Ok(ServiceStatusResponse {
-        running: false,
-        directories: vec![],
-        dry_run: true,
-    })
+pub async fn get_status(state: tauri::State<'_, BridgeState>) -> Result<ServiceStatus, String> {
+    bridge::get_status(&state).await
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ToggleRunningRequest {
     pub desired: Option<bool>,
 }
 
 #[tauri::command]
-pub async fn toggle_running(_payload: ToggleRunningRequest) -> Result<(), String> {
-    // TODO: proxy to service command when bridge is in place
-    Err(String::from("watcher control not yet implemented"))
+pub async fn toggle_running(
+    state: tauri::State<'_, BridgeState>,
+    payload: ToggleRunningRequest,
+) -> Result<ServiceStatus, String> {
+    bridge::toggle_running(&state, payload.desired).await
 }
 
 #[tauri::command]
-pub async fn list_directories() -> Result<Vec<String>, String> {
-    // TODO: return configured directories via NamefixService
-    Ok(vec![])
+pub async fn list_directories(state: tauri::State<'_, BridgeState>) -> Result<Vec<String>, String> {
+    bridge::list_directories(&state).await
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct LaunchOnLoginRequest {
     pub enabled: bool,
 }
 
 #[tauri::command]
-pub async fn set_launch_on_login(_payload: LaunchOnLoginRequest) -> Result<(), String> {
-    // TODO: forward to autostart plugin + service config once available
-    Err(String::from("launch-on-login bridge pending"))
+pub async fn set_launch_on_login(
+    state: tauri::State<'_, BridgeState>,
+    payload: LaunchOnLoginRequest,
+) -> Result<bool, String> {
+    bridge::set_launch_on_login(&state, payload.enabled).await
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SetDryRunRequest {
+    pub enabled: bool,
+}
+
+#[tauri::command]
+pub async fn set_dry_run(
+    state: tauri::State<'_, BridgeState>,
+    payload: SetDryRunRequest,
+) -> Result<ServiceStatus, String> {
+    bridge::set_dry_run(&state, payload.enabled).await
+}
+
+#[tauri::command]
+pub async fn undo(state: tauri::State<'_, BridgeState>) -> Result<bridge::UndoResult, String> {
+    bridge::undo(&state).await
 }

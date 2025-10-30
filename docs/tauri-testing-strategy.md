@@ -11,6 +11,7 @@ This document captures the pre-bridge testing approach so we can wire the menu b
 ## Node Bridge Layer
 - **Vitest integration tests**: exercise the forthcoming IPC bridge module by mocking the Tauri invoke API and asserting calls into `NamefixService`. Reuse the existing service fixtures to avoid duplication.
 - **Contract validation**: generate shared TypeScript types from `ServiceEventMap` (via `ts-json-schema-generator` or manual exports) and fail tests if the contract diverges from the Rust payload shapes.
+- **Safety note**: always drive the Node bridge (`service-bridge.mjs`) through Tauri or a dedicated harness that issues an explicit `shutdown` request. Running the script directly in the foreground will block the shell while it waits on stdin, so automation must spawn it in the background and terminate cleanly.
 
 ## Frontend Shell
 - **Component tests**: once we introduce UI components (menu, preferences window), cover them with `@testing-library` or `vitest` DOM tests to ensure state changes reflect command responses.

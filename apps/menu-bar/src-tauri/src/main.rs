@@ -1,13 +1,17 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod bridge;
 mod ipc;
 
+use bridge::{init_bridge, BridgeState};
 use tauri::Manager;
 use ipc::{
     get_status,
     list_directories,
+    set_dry_run,
     set_launch_on_login,
     toggle_running,
+    undo,
 };
 
 #[cfg(target_os = "macos")]
@@ -32,14 +36,23 @@ fn main() {
             get_status,
             toggle_running,
             list_directories,
-            set_launch_on_login
+            set_launch_on_login,
+            set_dry_run,
+            undo
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
             {
                 app.set_activation_policy(ActivationPolicy::Accessory);
             }
-            Ok(())
+            let app_handle = app.handle().clone();
+            match tauri::async_runtime::block_on(async { init_bridge(&app_handle).await }) {
+                Ok(bridge) => {
+                    app.manage::<BridgeState>(bridge);
+                    Ok(())
+                }
+                Err(err) => Err(Box::new(err) as Box<dyn std::error::Error>),
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running Namefix menu bar");
