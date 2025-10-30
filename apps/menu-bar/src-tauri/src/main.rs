@@ -1,6 +1,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod ipc;
+
 use tauri::Manager;
+use ipc::{
+    get_status,
+    list_directories,
+    set_launch_on_login,
+    toggle_running,
+};
 
 #[cfg(target_os = "macos")]
 use tauri::ActivationPolicy;
@@ -20,6 +28,12 @@ fn autostart_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 fn main() {
     tauri::Builder::default()
         .plugin(autostart_plugin())
+        .invoke_handler(tauri::generate_handler![
+            get_status,
+            toggle_running,
+            list_directories,
+            set_launch_on_login
+        ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
             {
