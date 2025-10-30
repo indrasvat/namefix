@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Namefix Menu Bar",
+  "version": "0.1.0",
+  "identifier": "com.namefix.menubar",
+  "build": {
+    "beforeBuildCommand": "pnpm build",
+    "beforeDevCommand": "pnpm dev",
+    "devPath": "http://localhost:5173",
+    "distDir": "../dist"
+  },
+  "app": {
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "Namefix Menu Bar",
+        "visible": true,
+        "width": 480,
+        "height": 640,
+        "resizable": true
+      }
+    ]
+  }
+}

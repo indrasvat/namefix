@@ -29,7 +29,9 @@
     "format": "biome format --write . || true",
     "lint": "biome lint . || true",
     "prepare": "command -v husky >/dev/null 2>&1 && husky install || true",
-    "test": "vitest run || echo 'tests pending'"
+    "test": "vitest run || echo 'tests pending'",
+    "tauri:dev": "pnpm --filter @namefix/menu-bar tauri:dev",
+    "tauri:build": "pnpm --filter @namefix/menu-bar tauri:build"
   },
   "keywords": [
     "macos",
