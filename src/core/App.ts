@@ -1,218 +1,172 @@
 import path from 'node:path';
+import type { IConfig } from '../types/index.js';
+import { NamefixService } from './NamefixService.js';
+import { ScreenManager } from '../tui/ScreenManager.js';
+import { SettingsModalView } from '../tui/components/SettingsModalView.js';
 
-type Provider<T> = () => T;
-
-export class Container {
-  private singletons = new Map<string, unknown>();
-  private providers = new Map<string, Provider<unknown>>();
-
-  register<T>(token: string, provider: Provider<T>) {
-    this.providers.set(token, provider as Provider<unknown>);
-  }
-
-  resolve<T>(token: string): T {
-    if (this.singletons.has(token)) return this.singletons.get(token) as T;
-    const provider = this.providers.get(token);
-    if (!provider) throw new Error(`No provider for token: ${token}`);
-    const instance = provider();
-    this.singletons.set(token, instance);
-    return instance as T;
-  }
-}
+type Overrides = Partial<{ watchDir: string; prefix: string; include: string[]; exclude: string[]; dryRun: boolean; theme: string }>;
 
 export class NamefixApp {
-  private readonly container = new Container();
-  private ui: any | null = null;
-  private watcher: any | null = null;
-  private matcher: any | null = null;
+  private service: NamefixService | null = null;
+  private ui: ScreenManager | null = null;
+  private subscriptions: Array<() => void> = [];
+  private currentConfig: IConfig | null = null;
+  private lastStatus: { running: boolean; directories: string[]; dryRun: boolean } | null = null;
 
-  async start(overrides?: Partial<{ watchDir: string; prefix: string; include: string[]; exclude: string[]; dryRun: boolean; theme: string }>): Promise<void> {
-    // TODO: Replace with tsyringe and real registrations (Task 2/13)
-    // Registrations kept minimal for now
-    const { ConfigStore } = await import('./config/ConfigStore.js');
-    const { Logger } = await import('./log/Logger.js');
-    const { EventBus } = await import('./events/EventBus.js');
-    this.container.register('ConfigStore', () => new ConfigStore());
-    this.container.register('Logger', () => new Logger());
-    this.container.register('EventBus', () => new EventBus());
-    const { RenameService } = await import('./rename/RenameService.js');
-    const { FsSafe } = await import('./fs/FsSafe.js');
-    this.container.register('RenameService', () => new RenameService());
-    this.container.register('FsSafe', () => new FsSafe());
+  async start(overrides?: Overrides): Promise<void> {
+    this.service = new NamefixService();
+    const cfg = await this.service.init(overrides);
+    this.currentConfig = cfg;
 
-    // Load config
-    const configStore: any = this.container.resolve('ConfigStore');
-    const logger: any = this.container.resolve('Logger');
-    const eventBus: any = this.container.resolve('EventBus');
-    let cfg = await configStore.get();
-    if (overrides && Object.keys(overrides).length) {
-      cfg = await configStore.set({ ...overrides });
-    }
-
-    // UI
-    const { ScreenManager } = await import('../tui/ScreenManager.js');
     this.ui = new ScreenManager();
-    // Apply persisted settings on startup (theme + dry-run)
-    if (cfg?.theme) { this.ui.theme.set(cfg.theme); this.ui.applyTheme(); }
+    if (cfg.theme) {
+      this.ui.theme.set(cfg.theme);
+      this.ui.applyTheme();
+    }
     this.ui.setDryRun(cfg.dryRun);
-    this.ui.showToast(`Watching: ${cfg.watchDir} • Dry-run: ${cfg.dryRun ? 'On' : 'Off'}`, 'info');
+    this.ui.showToast(`Ready • Dry-run: ${cfg.dryRun ? 'On' : 'Off'}`, 'info');
 
-    // Key bindings
-    this.ui.screen.key(['d'], async () => {
-      const next = !cfg.dryRun;
-      cfg.dryRun = next;
-      await configStore.set({ dryRun: next });
-      this.ui.setDryRun(next);
-      this.ui.showToast(next ? 'Dry-run enabled' : 'Live mode enabled', next ? 'warn' : 'info');
-    });
-
-    this.ui.screen.key(['u'], async () => {
-      try {
-        const { JournalStore } = await import('./journal/JournalStore');
-        const fsSafe = this.container.resolve<any>('FsSafe');
-        const journal = new JournalStore(fsSafe);
-        const res = await journal.undo();
-        this.ui.showToast(res.ok ? 'Undo applied' : `Undo failed: ${res.reason || ''}`, res.ok ? 'info' : 'error');
-      } catch (e: any) {
-        this.ui.showToast('Undo failed', 'error');
-      }
-    });
-
-    // Watch + pipeline
-    const { WatchService } = await import('./fs/WatchService.js');
-    const { Matcher } = await import('./rename/Matcher.js');
-    const { JournalStore } = await import('./journal/JournalStore.js');
-    this.matcher = new Matcher(cfg.include, cfg.exclude);
-    const fsSafe = this.container.resolve<any>('FsSafe');
-    const renamer = this.container.resolve<any>('RenameService');
-    const journal = new JournalStore(fsSafe);
-    // Ensure watch dir exists
-    const fsp = await import('node:fs/promises');
-    try { await fsp.access(cfg.watchDir); } catch { try { await fsp.mkdir(cfg.watchDir, { recursive: true }); } catch {} }
-
-    this.watcher = new WatchService(cfg.watchDir, fsSafe);
-
-    await this.watcher.start(async (ev: any) => {
-      const basename = path.basename(ev.path);
-      if (!this.matcher.test(basename)) return;
-      const extVal = path.extname(ev.path);
-      // If already matches, skip
-      if (!renamer.needsRename(basename, cfg.prefix)) {
-        this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, status: 'skipped', message: 'idempotent' });
-        return;
-      }
-      const targetBase = await renamer.targetFor(ev.path, { birthtime: new Date(ev.birthtimeMs), ext: extVal, prefix: cfg.prefix });
-      const dir = path.dirname(ev.path);
-      const targetPath = path.join(dir, targetBase);
-
-      try {
-        if (cfg.dryRun) {
-          this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, target: targetBase, status: 'preview' });
-          logger.info('preview', { from: ev.path, to: targetPath });
-          return;
-        }
-        try {
-          await fsSafe.atomicRename(ev.path, targetPath);
-          await journal.record(ev.path, targetPath);
-          this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, target: targetBase, status: 'applied' });
-          eventBus.emit('file:renamed', { from: ev.path, to: targetPath });
-        } catch (e: any) {
-          logger.error(e);
-          this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, status: 'error', message: e?.message || 'rename failed' });
-          eventBus.emit('file:error', { path: ev.path, error: e });
-        }
-      } finally {
-        renamer.release(dir, targetBase);
-      }
-    });
-
-    // Extra keybinds and hints
-    this.ui.screen.key(['s'], async () => {
-      try {
-        const { SettingsModalView } = await import('../tui/components/SettingsModalView.js');
-        const modal = new SettingsModalView();
-        modal.mount(this.ui.screen);
-        const themes = this.ui.theme.names();
-        this.ui.setModalOpen(true);
-        modal.open(cfg as any, themes, async (next) => {
-        const oldWatch = cfg.watchDir;
-        const oldInclude = cfg.include;
-        const oldExclude = cfg.exclude;
-        const oldPrefix = cfg.prefix;
-        
-        cfg = await configStore.set(next);
-        
-        // Apply live where possible
-        this.ui.setDryRun(cfg.dryRun);
-        if (next.theme) { this.ui.theme.set(next.theme); this.ui.applyTheme(); }
-        
-        // Update matcher if patterns changed
-        if (JSON.stringify(oldInclude) !== JSON.stringify(cfg.include) || 
-            JSON.stringify(oldExclude) !== JSON.stringify(cfg.exclude)) {
-          const { Matcher } = await import('./rename/Matcher.js');
-          this.matcher = new Matcher(cfg.include, cfg.exclude);
-          this.ui.showToast('Watch patterns updated', 'info');
-        }
-        
-        // Check if watch dir changed
-        if (next.watchDir !== oldWatch) {
-          // Stop old watcher and start new one
-          try {
-            const { WatchService } = await import('./fs/WatchService.js');
-            await this.watcher.stop();
-            this.watcher = new WatchService(cfg.watchDir, fsSafe);
-            await this.watcher.start(async (ev: any) => {
-              const basename = path.basename(ev.path);
-              if (!this.matcher.test(basename)) return;
-              const extVal = path.extname(ev.path);
-              // If already matches, skip
-              if (!renamer.needsRename(basename, cfg.prefix)) {
-                this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, status: 'skipped', message: 'idempotent' });
-                return;
-              }
-              const targetBase = await renamer.targetFor(ev.path, { birthtime: new Date(ev.birthtimeMs), ext: extVal, prefix: cfg.prefix });
-              const dir = path.dirname(ev.path);
-              const targetPath = path.join(dir, targetBase);
-
-              try {
-                if (cfg.dryRun) {
-                  this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, target: targetBase, status: 'preview' });
-                  logger.info('preview', { from: ev.path, to: targetPath });
-                  return;
-                }
-                try {
-                  await fsSafe.atomicRename(ev.path, targetPath);
-                  await journal.record(ev.path, targetPath);
-                  this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, target: targetBase, status: 'applied' });
-                  eventBus.emit('file:renamed', { from: ev.path, to: targetPath });
-                } catch (e: any) {
-                  logger.error(e);
-                  this.ui.addEvent({ when: new Date().toLocaleTimeString(), file: basename, status: 'error', message: e?.message || 'rename failed' });
-                  eventBus.emit('file:error', { path: ev.path, error: e });
-                }
-              } finally {
-                renamer.release(dir, targetBase);
-              }
-            });
-            this.ui.showToast(`Now watching: ${cfg.watchDir}`, 'info');
-          } catch (e: any) {
-            this.ui.showToast('Failed to update watch directory', 'error');
-            logger.error('Failed to update watcher', e);
-          }
-        } else {
-          this.ui.showToast('Settings saved', 'info');
-        }
-        
-        this.ui.setModalOpen(false);
-      }, () => { this.ui.setModalOpen(false); });
-      } catch (e: any) {
-        logger.error('Failed to open settings modal', e);
-        this.ui.showToast('Failed to open settings', 'error');
-      }
-    });
+    this.bindServiceEvents();
+    await this.service.start();
+    this.registerKeybindings();
   }
 
   async stop(): Promise<void> {
-    // TODO: Tear down services
+    this.subscriptions.forEach((off) => {
+      try { off(); } catch { /* ignore */ }
+    });
+    this.subscriptions = [];
+    if (this.service) {
+      await this.service.stop();
+    }
+  }
+
+  private bindServiceEvents() {
+    if (!this.service || !this.ui) return;
+    const ui = this.ui;
+    this.subscriptions.push(
+      this.service.on('file', (event) => {
+        const when = new Date(event.timestamp).toLocaleTimeString();
+        const directoryHint = event.directory ? ` (${path.basename(event.directory)})` : '';
+        if (event.kind === 'preview' || event.kind === 'applied') {
+          ui.addEvent({ when, file: `${event.file}${directoryHint}`, target: event.target, status: event.kind });
+        } else {
+          ui.addEvent({
+            when,
+            file: `${event.file}${directoryHint}`,
+            status: event.kind === 'skipped' ? 'skipped' : 'error',
+            message: event.kind === 'error' ? event.message : event.message ?? undefined
+          });
+        }
+      })
+    );
+    this.subscriptions.push(
+      this.service.on('toast', ({ message, level }) => {
+        ui.showToast(message, level);
+      })
+    );
+    this.subscriptions.push(
+      this.service.on('status', (status) => {
+        const prev = this.lastStatus;
+        this.lastStatus = status;
+        ui.setDryRun(status.dryRun);
+        const dirsLabel = status.directories.join(', ') || '—';
+        const changedRunning = !prev || prev.running !== status.running;
+        const changedDirs = !prev || dirsLabel !== prev.directories.join(', ');
+        if (changedRunning || changedDirs) {
+          if (status.running) ui.showToast(`Watching ${dirsLabel}`, 'info');
+          else ui.showToast('Watcher paused', 'warn');
+        }
+      })
+    );
+    this.subscriptions.push(
+      this.service.on('config', (cfg) => {
+        this.currentConfig = cfg;
+        ui.setDryRun(cfg.dryRun);
+        if (cfg.theme) {
+          ui.theme.set(cfg.theme);
+          ui.applyTheme();
+        }
+      })
+    );
+  }
+
+  private registerKeybindings() {
+    if (!this.service || !this.ui) return;
+    const screen = this.ui.screen;
+    screen.key(['d'], async () => {
+      const cfg = this.currentConfig ?? this.service!.getConfig();
+      const next = !cfg.dryRun;
+      try {
+        await this.service!.setDryRun(next);
+      } catch (err) {
+        this.ui?.showToast('Failed to toggle dry-run', 'error');
+      }
+    });
+
+    screen.key(['u'], async () => {
+      try {
+        await this.service!.undoLast();
+      } catch {
+        this.ui?.showToast('Undo failed', 'error');
+      }
+    });
+
+    screen.key(['s'], () => {
+      this.openSettings();
+    });
+  }
+
+  private openSettings() {
+    if (!this.service || !this.ui || !this.currentConfig) return;
+    const modal = new SettingsModalView();
+    modal.mount(this.ui.screen);
+    this.ui.setModalOpen(true);
+    const config = this.currentConfig;
+    const themes = this.ui.theme.names();
+    let primaryDir = config.watchDir;
+    if (!primaryDir || primaryDir.trim().length === 0) {
+      primaryDir = config.watchDirs[0] ?? '';
+    }
+    modal.open(
+      {
+        watchDir: primaryDir,
+        prefix: config.prefix,
+        include: config.include,
+        exclude: config.exclude,
+        dryRun: config.dryRun,
+        theme: config.theme
+      },
+      themes,
+      async (next) => {
+        this.ui?.setModalOpen(false);
+        try {
+          const updates: Array<Promise<unknown>> = [];
+          const normalizedNext = path.resolve(next.watchDir);
+          const currentPrimary = config.watchDir ? path.resolve(config.watchDir) : null;
+          const lacksPrimary = config.watchDirs.length === 0;
+          const watchDirChanged = !currentPrimary || currentPrimary !== normalizedNext;
+          if (watchDirChanged || lacksPrimary) {
+            updates.push(this.service!.setWatchDirs([normalizedNext]));
+          }
+          updates.push(
+            this.service!.setConfig({
+              prefix: next.prefix,
+              include: next.include,
+              exclude: next.exclude,
+              dryRun: next.dryRun,
+              theme: next.theme
+            })
+          );
+          await Promise.all(updates);
+          this.ui?.showToast('Settings saved', 'info');
+        } catch {
+          this.ui?.showToast('Failed to save settings', 'error');
+        }
+      },
+      () => {
+        this.ui?.setModalOpen(false);
+      }
+    );
   }
 }
