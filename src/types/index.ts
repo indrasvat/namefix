@@ -13,11 +13,13 @@ export type WatchEvent = {
 
 export interface IConfig {
   watchDir: string;
+  watchDirs: string[];
   prefix: string;
   include: string[];
   exclude: string[];
   dryRun: boolean;
   theme: string;
+  launchOnLogin: boolean;
 }
 
 export interface IConfigStore {
@@ -46,4 +48,5 @@ export interface IRenameService {
 
 export interface IWatchService extends IDispose {
   start(onAdd: (event: WatchEvent) => void): Promise<void>;
+  stop?(): Promise<void> | void;
 }
