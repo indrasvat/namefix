@@ -4,6 +4,7 @@ export type ServiceStatus = {
   running: boolean;
   directories: string[];
   dryRun: boolean;
+  launchOnLogin: boolean;
 };
 
 export type ServiceFileEvent =

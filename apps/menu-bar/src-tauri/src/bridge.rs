@@ -178,12 +178,14 @@ pub async fn init_bridge(app_handle: &AppHandle) -> anyhow::Result<NodeBridge> {
     Ok(bridge)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceStatus {
-    pub running: bool,
-    pub directories: Vec<String>,
-    #[serde(rename = "dryRun")]
-    pub dry_run: bool,
+  pub running: bool,
+  pub directories: Vec<String>,
+  #[serde(rename = "dryRun")]
+  pub dry_run: bool,
+  #[serde(rename = "launchOnLogin")]
+  pub launch_on_login: bool,
 }
 
 pub async fn get_status(bridge: &BridgeState) -> Result<ServiceStatus, String> {

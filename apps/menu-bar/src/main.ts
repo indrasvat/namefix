@@ -8,6 +8,7 @@ type ServiceStatus = {
   running: boolean;
   directories: string[];
   dryRun: boolean;
+  launchOnLogin: boolean;
 };
 
 async function subscribeToStatus() {

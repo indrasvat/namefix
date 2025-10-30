@@ -11,11 +11,11 @@
     "tauri:build": "pnpm -C ../.. build && tauri build"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.9.0",
-    "@tauri-apps/plugin-autostart": "^2.2.0"
+    "@tauri-apps/api": "^2.5.1",
+    "@tauri-apps/plugin-autostart": "^2.5.1"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.9.1",
+    "@tauri-apps/cli": "^2.5.1",
     "@types/node": "workspace:^",
     "typescript": "workspace:^",
     "vite": "^5.2.0"

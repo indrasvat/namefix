@@ -152,7 +152,12 @@ export class NamefixService {
 
   getStatus(): ServiceStatus {
     const cfg = this.getConfig();
-    return { running: this.running, directories: this.getWatchDirs(cfg), dryRun: cfg.dryRun };
+    return {
+      running: this.running,
+      directories: this.getWatchDirs(cfg),
+      dryRun: cfg.dryRun,
+      launchOnLogin: cfg.launchOnLogin
+    };
   }
 
   async undoLast(): Promise<{ ok: boolean; reason?: string }> {
@@ -317,7 +322,8 @@ export class NamefixService {
     this.emit('status', {
       running: this.running && this.watchers.size > 0,
       directories: dirs,
-      dryRun: this.config.dryRun
+      dryRun: this.config.dryRun,
+      launchOnLogin: this.config.launchOnLogin
     });
   }
 }

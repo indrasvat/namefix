@@ -2,6 +2,7 @@
 
 mod bridge;
 mod ipc;
+mod tray;
 
 use bridge::{init_bridge, BridgeState};
 use tauri::Manager;
@@ -13,6 +14,7 @@ use ipc::{
     toggle_running,
     undo,
 };
+use tray::{init_tray, register_status_listener, TrayState};
 
 #[cfg(target_os = "macos")]
 use tauri::ActivationPolicy;
@@ -48,7 +50,11 @@ fn main() {
             let app_handle = app.handle().clone();
             match tauri::async_runtime::block_on(async { init_bridge(&app_handle).await }) {
                 Ok(bridge) => {
+                    let tray_state = init_tray(app, &bridge)
+                        .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)?;
+                    register_status_listener(app);
                     app.manage::<BridgeState>(bridge);
+                    app.manage::<TrayState>(tray_state);
                     Ok(())
                 }
                 Err(err) => Err(Box::new(err) as Box<dyn std::error::Error>),

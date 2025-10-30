@@ -142,7 +142,8 @@ describe('NamefixService', () => {
     expect(statuses.pop()).toMatchObject({
       running: true,
       directories: initialConfig.watchDirs,
-      dryRun: initialConfig.dryRun
+      dryRun: initialConfig.dryRun,
+      launchOnLogin: initialConfig.launchOnLogin
     });
   });
 
@@ -151,6 +152,7 @@ describe('NamefixService', () => {
     await service.init();
     await service.start();
 
+    const baselineStatus = service.getStatus();
     const [firstDir] = Array.from(watchers.keys());
     expect(firstDir).toBeDefined();
     const previousWatcher = watchers.get(firstDir!)!;
@@ -171,7 +173,8 @@ describe('NamefixService', () => {
     }
     expect(statusUpdates.pop()).toMatchObject({
       directories: [newDir],
-      running: true
+      running: true,
+      launchOnLogin: baselineStatus.launchOnLogin
     });
   });
 
