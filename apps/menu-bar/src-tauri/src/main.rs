@@ -7,8 +7,10 @@ mod tray;
 use bridge::{init_bridge, BridgeState};
 use tauri::Manager;
 use ipc::{
+    add_watch_dir,
     get_status,
     list_directories,
+    remove_watch_dir,
     set_dry_run,
     set_launch_on_login,
     toggle_running,
@@ -35,9 +37,11 @@ fn main() {
     tauri::Builder::default()
         .plugin(autostart_plugin())
         .invoke_handler(tauri::generate_handler![
+            add_watch_dir,
             get_status,
             toggle_running,
             list_directories,
+            remove_watch_dir,
             set_launch_on_login,
             set_dry_run,
             undo

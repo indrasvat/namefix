@@ -68,7 +68,7 @@ pub fn init_tray(app: &AppHandle<Wry>, bridge: &BridgeState) -> tauri::Result<Tr
     let dry_run = CheckMenuItem::with_id(app, MENU_TOGGLE_DRY_RUN, "Dry Run", true, true, None::<&str>)?;
     let launch_on_login = CheckMenuItem::with_id(app, MENU_LAUNCH_ON_LOGIN, "Launch on Login", true, false, None::<&str>)?;
     let undo = MenuItem::with_id(app, MENU_UNDO, "Undo Last Rename", true, None::<&str>)?;
-    let open_main = MenuItem::with_id(app, MENU_OPEN_MAIN, "Open Window", true, None::<&str>)?;
+    let open_main = MenuItem::with_id(app, MENU_OPEN_MAIN, "Preferences...", true, None::<&str>)?;
     let quit_item = PredefinedMenuItem::quit(app, Some("Quit Namefix"))?;
 
     let directories = SubmenuBuilder::with_id(app, MENU_DIRECTORIES, "Directories").build()?;

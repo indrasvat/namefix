@@ -214,6 +214,16 @@ pub async fn set_dry_run(bridge: &BridgeState, enabled: bool) -> Result<ServiceS
     bridge.invoke::<ServiceStatus>("setDryRun", params).await
 }
 
+pub async fn add_watch_dir(bridge: &BridgeState, directory: String) -> Result<Vec<String>, String> {
+    let params = json!({ "directory": directory });
+    bridge.invoke::<Vec<String>>("addWatchDir", params).await
+}
+
+pub async fn remove_watch_dir(bridge: &BridgeState, directory: String) -> Result<Vec<String>, String> {
+    let params = json!({ "directory": directory });
+    bridge.invoke::<Vec<String>>("removeWatchDir", params).await
+}
+
 #[derive(Debug, Deserialize)]
 pub struct UndoResult {
     pub ok: bool,
