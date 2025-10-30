@@ -11,7 +11,8 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.9.0"
+    "@tauri-apps/api": "^2.9.0",
+    "@tauri-apps/plugin-autostart": "^2.2.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.1",

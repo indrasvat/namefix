@@ -13,6 +13,9 @@
     "security": {
       "csp": null
     },
+    "capabilities": [
+      "menu-bar"
+    ],
     "windows": [
       {
         "label": "main",
