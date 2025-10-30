@@ -12,6 +12,11 @@ import { JournalStore } from './journal/JournalStore.js';
 import type { ServiceEventMap, ServiceStatus } from '../types/service.js';
 import { TypedEmitter } from '../utils/TypedEmitter.js';
 
+/**
+ * Shared orchestrator responsible for configuration, directory watching, and rename lifecycles.
+ *
+ * Emits typed events (`ServiceEventMap`) consumable by both the CLI/TUI and external front-ends.
+ */
 export class NamefixService {
   private emitter = new TypedEmitter<ServiceEventMap>();
   private configStore: IConfigStore;
@@ -160,6 +165,9 @@ export class NamefixService {
     return res;
   }
 
+  /**
+   * Subscribe to service events. Returns an unsubscribe handle for convenience.
+   */
   on<K extends keyof ServiceEventMap>(event: K, listener: (event: ServiceEventMap[K]) => void): () => void {
     return this.emitter.on(event, listener);
   }
