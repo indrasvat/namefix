@@ -32,6 +32,15 @@ export class WatchService implements IWatchService {
     });
   }
 
+  async stop(): Promise<void> {
+    if (!this.watcher) return;
+    try {
+      await this.watcher.close();
+    } finally {
+      this.watcher = null;
+    }
+  }
+
   private stopCurrent() {
     if (this.watcher) {
       try { this.watcher.close(); } catch {}
@@ -40,6 +49,6 @@ export class WatchService implements IWatchService {
   }
 
   dispose(): void | Promise<void> {
-    this.stopCurrent();
+    return this.stop();
   }
 }

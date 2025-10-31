@@ -2,18 +2,19 @@ import fs from 'node:fs/promises';
 import fscb from 'node:fs';
 import path from 'node:path';
 import type { IConfig, IConfigStore } from '../../types/index';
-import { librarySupportPath } from '../../utils/paths.js';
+import { configDir } from '../../utils/paths.js';
 
-const APP_DIR = librarySupportPath('namefix');
-const CONFIG_FILE = path.join(APP_DIR, 'config.json');
+const DEFAULT_WATCH_DIR = process.env.HOME ? path.join(process.env.HOME, 'Desktop') : '';
 
 const DEFAULT_CONFIG: IConfig = {
-  watchDir: process.env.HOME ? path.join(process.env.HOME, 'Desktop') : '',
+  watchDir: DEFAULT_WATCH_DIR,
+  watchDirs: DEFAULT_WATCH_DIR ? [DEFAULT_WATCH_DIR] : [],
   prefix: 'Screenshot',
   include: ['Screenshot*'],
   exclude: [],
   dryRun: true,
-  theme: 'default'
+  theme: 'default',
+  launchOnLogin: false
 };
 
 function isStringArray(v: unknown): v is string[] {
@@ -22,17 +23,50 @@ function isStringArray(v: unknown): v is string[] {
 
 function validateConfig(input: Partial<IConfig>): IConfig {
   const cfg: IConfig = { ...DEFAULT_CONFIG, ...input } as IConfig;
-  if (typeof cfg.watchDir !== 'string' || cfg.watchDir.length === 0) cfg.watchDir = DEFAULT_CONFIG.watchDir;
+  const candidateDirs = Array.isArray(input.watchDirs)
+    ? input.watchDirs
+    : input.watchDir
+      ? [input.watchDir]
+      : cfg.watchDirs;
+  cfg.watchDirs = sanitizeDirs(candidateDirs);
+  if (typeof cfg.watchDir !== 'string' || cfg.watchDir.length === 0) {
+    cfg.watchDir = cfg.watchDirs[0] ?? DEFAULT_CONFIG.watchDir;
+  }
+  if (cfg.watchDir) {
+    cfg.watchDirs = [cfg.watchDir, ...cfg.watchDirs.filter((dir) => dir !== cfg.watchDir)];
+  }
+  if (!cfg.watchDirs.length && cfg.watchDir) {
+    cfg.watchDirs = [cfg.watchDir];
+  }
   if (typeof cfg.prefix !== 'string' || cfg.prefix.length === 0) cfg.prefix = DEFAULT_CONFIG.prefix;
   if (!isStringArray(cfg.include) || cfg.include.length === 0) cfg.include = DEFAULT_CONFIG.include;
   if (!isStringArray(cfg.exclude)) cfg.exclude = DEFAULT_CONFIG.exclude;
   if (typeof cfg.dryRun !== 'boolean') cfg.dryRun = DEFAULT_CONFIG.dryRun;
   if (typeof cfg.theme !== 'string' || cfg.theme.length === 0) cfg.theme = DEFAULT_CONFIG.theme;
+  if (typeof cfg.launchOnLogin !== 'boolean') cfg.launchOnLogin = DEFAULT_CONFIG.launchOnLogin;
   return cfg;
 }
 
 async function ensureDir(p: string) {
   await fs.mkdir(p, { recursive: true });
+}
+
+function sanitizeDirs(rawDirs: unknown): string[] {
+  const dirs: string[] = [];
+  if (Array.isArray(rawDirs)) {
+    for (const entry of rawDirs) {
+      if (typeof entry === 'string' && entry.trim().length > 0) dirs.push(path.resolve(entry.trim()));
+    }
+  }
+  if (!dirs.length && DEFAULT_CONFIG.watchDir) dirs.push(path.resolve(DEFAULT_CONFIG.watchDir));
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const dir of dirs) {
+    if (seen.has(dir)) continue;
+    seen.add(dir);
+    normalized.push(dir);
+  }
+  return normalized;
 }
 
 export class ConfigStore implements IConfigStore {
@@ -41,9 +75,11 @@ export class ConfigStore implements IConfigStore {
 
   async get(): Promise<IConfig> {
     if (this.current) return this.current;
-    try { await ensureDir(APP_DIR); } catch { /* non-fatal (sandbox) */ }
+    const cfgDir = configDir('namefix');
+    const configFile = path.join(cfgDir, 'config.json');
+    try { await ensureDir(cfgDir); } catch { /* non-fatal (sandbox) */ }
     try {
-      const raw = await fs.readFile(CONFIG_FILE, 'utf8');
+      const raw = await fs.readFile(configFile, 'utf8');
       const parsed = JSON.parse(raw);
       const valid = validateConfig(parsed);
       this.current = valid;
@@ -81,18 +117,20 @@ export class ConfigStore implements IConfigStore {
   }
 
   private async persist(cfg: IConfig): Promise<void> {
+    const cfgDir = configDir('namefix');
+    const configFile = path.join(cfgDir, 'config.json');
     try {
-      await ensureDir(APP_DIR);
-      const tmp = CONFIG_FILE + '.tmp';
+      await ensureDir(cfgDir);
+      const tmp = configFile + '.tmp';
       const data = JSON.stringify(cfg, null, 2);
       await fs.writeFile(tmp, data, 'utf8');
-      await fs.rename(tmp, CONFIG_FILE);
+      await fs.rename(tmp, configFile);
       try {
-        const fd = await fs.open(CONFIG_FILE, 'r');
+        const fd = await fs.open(configFile, 'r');
         await fd.sync();
         await fd.close();
       } catch { /* ignore */ }
-      try { fscb.chmodSync(CONFIG_FILE, 0o600); } catch { /* ignore */ }
+      try { fscb.chmodSync(configFile, 0o600); } catch { /* ignore */ }
     } catch {
       // In read-only/sandboxed env, skip persistence
     }

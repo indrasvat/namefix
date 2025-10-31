@@ -6,7 +6,6 @@
   "permissions": [
     { "identifier": "core:app:default" },
     { "identifier": "core:window:default" },
-    { "identifier": "core:global-shortcut:disable" },
     { "identifier": "core:event:default" },
     { "identifier": "core:path:default" },
     { "identifier": "core:tray:default" },

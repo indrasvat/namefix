@@ -30,3 +30,4 @@ coverage/
 # Build outputs
 dist/
 build/
+artifacts/

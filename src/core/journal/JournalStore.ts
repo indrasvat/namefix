@@ -1,25 +1,30 @@
 import fs from 'node:fs/promises';
 import fscb from 'node:fs';
 import path from 'node:path';
-import { librarySupportPath } from '../../utils/paths.js';
+import { stateDir } from '../../utils/paths.js';
 import type { IJournalStore } from '../../types/index';
 import { FsSafe } from '../fs/FsSafe.js';
 
 type Entry = { from: string; to: string; ts: number };
 
-const APP_DIR = librarySupportPath('namefix');
-const JOURNAL_PATH = path.join(APP_DIR, 'journal.ndjson');
+function journalDir() {
+  return stateDir('namefix');
+}
+
+function journalPath() {
+  return path.join(journalDir(), 'journal.ndjson');
+}
 
 export class JournalStore implements IJournalStore {
   private cache: Entry[] = [];
   constructor(private readonly fsSafe: FsSafe) {}
 
-  private async ensure() { await fs.mkdir(APP_DIR, { recursive: true }); }
+  private async ensure() { await fs.mkdir(journalDir(), { recursive: true }); }
 
   private async load(): Promise<Entry[]> {
     await this.ensure();
     try {
-      const data = await fs.readFile(JOURNAL_PATH, 'utf8');
+      const data = await fs.readFile(journalPath(), 'utf8');
       const lines = data.split(/\r?\n/).filter(Boolean);
       this.cache = lines.map((l) => JSON.parse(l));
     } catch (e: any) {
@@ -32,7 +37,7 @@ export class JournalStore implements IJournalStore {
   async record(from: string, to: string): Promise<void> {
     await this.ensure();
     const entry: Entry = { from, to, ts: Date.now() };
-    await fs.appendFile(JOURNAL_PATH, JSON.stringify(entry) + '\n', 'utf8');
+    await fs.appendFile(journalPath(), JSON.stringify(entry) + '\n', 'utf8');
     this.cache.push(entry);
   }
 
@@ -67,10 +72,10 @@ export class JournalStore implements IJournalStore {
   }
 
   private async rewrite() {
-    const tmp = JOURNAL_PATH + '.tmp';
+    const tmp = journalPath() + '.tmp';
     const data = this.cache.map((e) => JSON.stringify(e)).join('\n') + (this.cache.length ? '\n' : '');
     await fs.writeFile(tmp, data, 'utf8');
-    await fs.rename(tmp, JOURNAL_PATH);
+    await fs.rename(tmp, journalPath());
   }
 
   dispose(): void | Promise<void> {

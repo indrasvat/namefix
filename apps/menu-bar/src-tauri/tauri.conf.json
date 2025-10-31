@@ -4,22 +4,22 @@
   "version": "0.1.0",
   "identifier": "com.namefix.menubar",
   "build": {
-    "beforeBuildCommand": "pnpm build",
-    "beforeDevCommand": "pnpm dev",
-    "devPath": "http://localhost:5173",
-    "distDir": "../dist"
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
   },
   "app": {
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": [
+        "menu-bar"
+      ]
     },
-    "capabilities": [
-      "menu-bar"
-    ],
     "windows": [
       {
         "label": "main",
-        "title": "Namefix Menu Bar",
+        "title": "Namefix > Preferences",
         "visible": true,
         "width": 480,
         "height": 640,

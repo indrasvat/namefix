@@ -104,7 +104,7 @@ export class NamefixService {
 
   async addWatchDir(dir: string): Promise<IConfig> {
     if (!dir || dir.trim().length === 0) return this.getConfig();
-    const resolved = path.resolve(dir.trim());
+    const resolved = this.normalizePath(dir);
     const cfg = this.getConfig();
     if (cfg.watchDirs.includes(resolved)) {
       if (cfg.watchDir !== resolved) {
@@ -119,7 +119,7 @@ export class NamefixService {
 
   async removeWatchDir(dir: string): Promise<IConfig> {
     if (!dir || dir.trim().length === 0) return this.getConfig();
-    const resolved = path.resolve(dir.trim());
+    const resolved = this.normalizePath(dir);
     const cfg = this.getConfig();
     const remaining = cfg.watchDirs.filter((d) => d !== resolved);
     const next: Partial<IConfig> = { watchDirs: remaining };
@@ -129,7 +129,7 @@ export class NamefixService {
 
   async setPrimaryWatchDir(dir: string): Promise<IConfig> {
     if (!dir || dir.trim().length === 0) return this.getConfig();
-    const resolved = path.resolve(dir.trim());
+    const resolved = this.normalizePath(dir);
     const cfg = this.getConfig();
     if (!cfg.watchDirs.includes(resolved)) {
       return await this.configStore.set({ watchDir: resolved, watchDirs: [resolved, ...cfg.watchDirs] });
@@ -138,7 +138,7 @@ export class NamefixService {
   }
 
   async setWatchDirs(dirs: string[]): Promise<IConfig> {
-    const normalized = Array.from(new Set(dirs.filter(Boolean).map((d) => path.resolve(d.trim()))));
+    const normalized = this.normalizeDirs(dirs);
     if (!normalized.length) {
       return await this.configStore.set({ watchDirs: [] });
     }
@@ -259,7 +259,13 @@ export class NamefixService {
   }
 
   private applyConfig(cfg: IConfig) {
-    this.config = cfg;
+    const normalizedDirs = this.normalizeDirs(cfg.watchDirs, cfg.watchDir);
+    const primaryDir = normalizedDirs[0] ?? cfg.watchDir;
+    this.config = {
+      ...cfg,
+      watchDirs: normalizedDirs,
+      watchDir: primaryDir
+    };
     this.matcher = new Matcher(cfg.include, cfg.exclude);
     this.emitStatus();
   }
@@ -273,9 +279,7 @@ export class NamefixService {
   }
 
   private getWatchDirs(cfg: IConfig): string[] {
-    const maybe = (cfg as any).watchDirs as string[] | undefined;
-    if (Array.isArray(maybe) && maybe.length) return Array.from(new Set(maybe));
-    return cfg.watchDir ? [cfg.watchDir] : [];
+    return this.normalizeDirs(cfg.watchDirs, cfg.watchDir);
   }
 
   private async handleWatchEvent(directory: string, ev: { path: string; birthtimeMs: number; mtimeMs: number; size: number }) {
@@ -325,5 +329,28 @@ export class NamefixService {
       dryRun: this.config.dryRun,
       launchOnLogin: this.config.launchOnLogin
     });
+  }
+
+  private normalizeDirs(dirs?: (string | null | undefined)[], fallback?: string): string[] {
+    const raw: string[] = [];
+    if (Array.isArray(dirs)) {
+      for (const entry of dirs) {
+        if (entry && entry.trim().length > 0) {
+          raw.push(entry);
+        }
+      }
+    }
+    if (!raw.length && fallback && fallback.trim().length > 0) {
+      raw.push(fallback);
+    }
+    const normalized = raw
+      .map((dir) => (dir ?? '').trim())
+      .filter((dir) => dir.length > 0)
+      .map((dir) => this.normalizePath(dir));
+    return Array.from(new Set(normalized));
+  }
+
+  private normalizePath(dir: string): string {
+    return path.resolve(dir.trim());
   }
 }

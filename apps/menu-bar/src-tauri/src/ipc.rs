@@ -1,27 +1,27 @@
 use crate::bridge::{self, BridgeState, ServiceStatus};
+use anyhow::anyhow;
 use serde::Deserialize;
 
-#[tauri::command]
-pub async fn get_status(state: tauri::State<'_, BridgeState>) -> Result<ServiceStatus, String> {
-    bridge::get_status(&state).await
+fn map_bridge_err<T>(result: Result<T, String>) -> tauri::Result<T> {
+    result.map_err(|err| tauri::Error::Anyhow(anyhow!(err)))
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ToggleRunningRequest {
-    pub desired: Option<bool>,
+#[tauri::command]
+pub async fn get_status(state: tauri::State<'_, BridgeState>) -> tauri::Result<ServiceStatus> {
+    map_bridge_err(bridge::get_status(&state).await)
 }
 
 #[tauri::command]
 pub async fn toggle_running(
     state: tauri::State<'_, BridgeState>,
-    payload: ToggleRunningRequest,
-) -> Result<ServiceStatus, String> {
-    bridge::toggle_running(&state, payload.desired).await
+    desired: Option<bool>,
+) -> tauri::Result<ServiceStatus> {
+    map_bridge_err(bridge::toggle_running(&state, desired).await)
 }
 
 #[tauri::command]
-pub async fn list_directories(state: tauri::State<'_, BridgeState>) -> Result<Vec<String>, String> {
-    bridge::list_directories(&state).await
+pub async fn list_directories(state: tauri::State<'_, BridgeState>) -> tauri::Result<Vec<String>> {
+    map_bridge_err(bridge::list_directories(&state).await)
 }
 
 #[derive(Debug, Deserialize)]
@@ -33,8 +33,8 @@ pub struct LaunchOnLoginRequest {
 pub async fn set_launch_on_login(
     state: tauri::State<'_, BridgeState>,
     payload: LaunchOnLoginRequest,
-) -> Result<bool, String> {
-    bridge::set_launch_on_login(&state, payload.enabled).await
+) -> tauri::Result<bool> {
+    map_bridge_err(bridge::set_launch_on_login(&state, payload.enabled).await)
 }
 
 #[derive(Debug, Deserialize)]
@@ -46,32 +46,27 @@ pub struct SetDryRunRequest {
 pub async fn set_dry_run(
     state: tauri::State<'_, BridgeState>,
     payload: SetDryRunRequest,
-) -> Result<ServiceStatus, String> {
-    bridge::set_dry_run(&state, payload.enabled).await
+) -> tauri::Result<ServiceStatus> {
+    map_bridge_err(bridge::set_dry_run(&state, payload.enabled).await)
 }
 
 #[tauri::command]
-pub async fn undo(state: tauri::State<'_, BridgeState>) -> Result<bridge::UndoResult, String> {
-    bridge::undo(&state).await
-}
-
-#[derive(Debug, Deserialize)]
-pub struct DirectoryRequest {
-    pub directory: String,
+pub async fn undo(state: tauri::State<'_, BridgeState>) -> tauri::Result<bridge::UndoResult> {
+    map_bridge_err(bridge::undo(&state).await)
 }
 
 #[tauri::command]
 pub async fn add_watch_dir(
     state: tauri::State<'_, BridgeState>,
-    payload: DirectoryRequest,
-) -> Result<Vec<String>, String> {
-    bridge::add_watch_dir(&state, payload.directory).await
+    directory: String,
+) -> tauri::Result<Vec<String>> {
+    map_bridge_err(bridge::add_watch_dir(&state, directory).await)
 }
 
 #[tauri::command]
 pub async fn remove_watch_dir(
     state: tauri::State<'_, BridgeState>,
-    payload: DirectoryRequest,
-) -> Result<Vec<String>, String> {
-    bridge::remove_watch_dir(&state, payload.directory).await
+    directory: String,
+) -> tauri::Result<Vec<String>> {
+    map_bridge_err(bridge::remove_watch_dir(&state, directory).await)
 }

@@ -6,7 +6,8 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::{atomic::{AtomicU64, Ordering}, Arc};
 use tauri::async_runtime::{self, Mutex};
-use tauri::{AppHandle, Manager};
+use tauri::path::BaseDirectory;
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{broadcast, oneshot};
@@ -141,18 +142,17 @@ impl NodeBridge {
 }
 
 fn resolve_bridge_script(app_handle: &AppHandle) -> anyhow::Result<PathBuf> {
-    if let Some(path) = app_handle.path_resolver().resolve_resource("service-bridge.mjs") {
-        Ok(path)
-    } else {
-        let mut fallback = app_handle.path_resolver().app_dir().unwrap_or_else(|| PathBuf::from("."));
-        fallback.pop(); // src-tauri
-        fallback.push("resources");
-        fallback.push("service-bridge.mjs");
-        if fallback.exists() {
-            Ok(fallback)
-        } else {
-            Err(anyhow::anyhow!("service bridge script not found"))
+    if let Ok(path) = app_handle.path().resolve("service-bridge.mjs", BaseDirectory::Resource) {
+        if path.exists() {
+            return Ok(path);
         }
+    }
+
+    let fallback = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/service-bridge.mjs");
+    if fallback.exists() {
+        Ok(fallback)
+    } else {
+        Err(anyhow::anyhow!("service bridge script not found"))
     }
 }
 
@@ -172,7 +172,7 @@ pub async fn init_bridge(app_handle: &AppHandle) -> anyhow::Result<NodeBridge> {
     async_runtime::spawn(async move {
         while let Ok(event) = rx.recv().await {
             let event_name = format!("service://{}", event.name);
-            let _ = emitter_handle.emit_all(&event_name, event.payload);
+            let _ = emitter_handle.emit(&event_name, event.payload);
         }
     });
     Ok(bridge)
@@ -224,7 +224,7 @@ pub async fn remove_watch_dir(bridge: &BridgeState, directory: String) -> Result
     bridge.invoke::<Vec<String>>("removeWatchDir", params).await
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct UndoResult {
     pub ok: bool,
     pub reason: Option<String>,
@@ -233,4 +233,3 @@ pub struct UndoResult {
 pub async fn undo(bridge: &BridgeState) -> Result<UndoResult, String> {
     bridge.invoke::<UndoResult>("undo", Value::Null).await
 }
-*** End Patch

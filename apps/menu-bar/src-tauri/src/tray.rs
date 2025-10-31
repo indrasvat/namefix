@@ -6,7 +6,7 @@ use tauri::{
     image::Image,
     menu::{CheckMenuItem, MenuBuilder, MenuItem, PredefinedMenuItem, Submenu, SubmenuBuilder},
     tray::{TrayIcon, TrayIconBuilder},
-    AppHandle, Manager, Runtime, Wry,
+    AppHandle, Listener, Manager, Wry,
 };
 
 use crate::bridge::{self, BridgeState, ServiceStatus};
@@ -90,10 +90,10 @@ pub fn init_tray(app: &AppHandle<Wry>, bridge: &BridgeState) -> tauri::Result<Tr
     let tray_icon = TrayIconBuilder::with_id("namefix-tray")
         .menu(&menu)
         .icon(tray_icon_image()?)
-        .icon_as_template(true)
+        .icon_as_template(false)
         .tooltip("Namefix")
         .on_menu_event(move |app, event| {
-            let event_id = event.id().to_string();
+            let event_id = event.id().0.clone();
             let app_handle = app.clone();
             async_runtime::spawn(async move {
                 let bridge_state = app_handle.state::<BridgeState>();
@@ -125,7 +125,7 @@ pub fn init_tray(app: &AppHandle<Wry>, bridge: &BridgeState) -> tauri::Result<Tr
                         }
                     }
                     MENU_OPEN_MAIN => {
-                        if let Some(window) = app_handle.get_window("main") {
+                        if let Some(window) = app_handle.get_webview_window("main") {
                             let _ = window.show();
                             let _ = window.set_focus();
                         }
@@ -160,13 +160,12 @@ pub fn init_tray(app: &AppHandle<Wry>, bridge: &BridgeState) -> tauri::Result<Tr
 
 pub fn register_status_listener(app: &AppHandle<Wry>) {
     let app_handle = app.clone();
-    app.listen_global("service://status", move |event| {
-        if let Some(payload) = event.payload() {
-            if let Ok(status) = serde_json::from_str::<ServiceStatus>(payload) {
-                if let Some(tray_state) = app_handle.try_state::<TrayState>() {
-                    if let Err(err) = tray_state.apply_status(&app_handle, &status) {
-                        log::error!("failed to update tray: {}", err);
-                    }
+    app.listen_any("service://status", move |event| {
+        let payload = event.payload();
+        if let Ok(status) = serde_json::from_str::<ServiceStatus>(payload) {
+            if let Some(tray_state) = app_handle.try_state::<TrayState>() {
+                if let Err(err) = tray_state.apply_status(&app_handle, &status) {
+                    log::error!("failed to update tray: {}", err);
                 }
             }
         }
@@ -201,25 +200,99 @@ fn rebuild_directories(app: &AppHandle<Wry>, submenu: &Submenu<Wry>, directories
 }
 
 fn tray_icon_image() -> tauri::Result<Image<'static>> {
-    const SIZE: u32 = 18;
+    const SIZE: u32 = 28;
     let mut rgba = vec![0u8; (SIZE * SIZE * 4) as usize];
-    let center = (SIZE as f32 - 1.0) / 2.0;
-    let radius = SIZE as f32 * 0.35;
+    let max = (SIZE - 1) as f32;
+    let center = max / 2.0;
+    let base_radius = SIZE as f32 * 0.48;
+    let halo_radius = base_radius + 2.2;
+
+    let doc_left = 7.5;
+    let doc_right = SIZE as f32 - 7.5;
+    let doc_top = 8.0;
+    let doc_bottom = SIZE as f32 - 8.5;
+    let doc_radius = 4.2;
+
+    let in_round_rect = |xf: f32, yf: f32| -> bool {
+        if xf < doc_left || xf > doc_right || yf < doc_top || yf > doc_bottom {
+            return false;
+        }
+        let inner_left = doc_left + doc_radius;
+        let inner_right = doc_right - doc_radius;
+        let inner_top = doc_top + doc_radius;
+        let inner_bottom = doc_bottom - doc_radius;
+        if (xf >= inner_left && xf <= inner_right) || (yf >= inner_top && yf <= inner_bottom) {
+            return true;
+        }
+        let corner_x = if xf < inner_left { inner_left } else { inner_right };
+        let corner_y = if yf < inner_top { inner_top } else { inner_bottom };
+        let dx = xf - corner_x;
+        let dy = yf - corner_y;
+        (dx * dx + dy * dy) <= doc_radius * doc_radius
+    };
 
     for y in 0..SIZE {
         for x in 0..SIZE {
-            let dx = x as f32 - center;
-            let dy = y as f32 - center;
+            let idx = ((y * SIZE + x) * 4) as usize;
+            let xf = x as f32;
+            let yf = y as f32;
+            let dx = xf - center;
+            let dy = yf - center;
             let dist = (dx * dx + dy * dy).sqrt();
-            let offset = ((y * SIZE + x) * 4) as usize;
-            if dist <= radius {
-                rgba[offset] = 255;
-                rgba[offset + 1] = 255;
-                rgba[offset + 2] = 255;
-                rgba[offset + 3] = 255;
-            } else {
-                rgba[offset..offset + 4].copy_from_slice(&[0, 0, 0, 0]);
+
+            if dist > halo_radius {
+                rgba[idx + 3] = 0;
+                continue;
             }
+
+            let gradient = ((xf + yf) / (2.0 * max.max(1.0))).clamp(0.0, 1.0);
+            let mut r = 18.0 + gradient * 60.0;
+            let mut g = 28.0 + gradient * 90.0;
+            let mut b = 52.0 + gradient * 120.0;
+            let mut alpha = if dist <= base_radius {
+                0.92
+            } else {
+                ((halo_radius - dist) / (halo_radius - base_radius)).clamp(0.0, 1.0) * 0.8
+            };
+
+            if in_round_rect(xf, yf) {
+                let doc_shade = 0.65 + 0.15 * ((yf - doc_top) / (doc_bottom - doc_top)).clamp(0.0, 1.0);
+                r = 220.0 * doc_shade;
+                g = 233.0 * doc_shade;
+                b = 255.0 * doc_shade;
+                alpha = 0.96;
+
+                // folded corner
+                if xf > doc_right - doc_radius && yf < doc_top + doc_radius && (xf + yf) > (doc_right + doc_top - doc_radius) {
+                    r = 255.0;
+                    g = 249.0;
+                    b = 200.0;
+                }
+            }
+
+            // diagonal rename arrow overlay
+            let diag = ((yf - (-1.05 * xf + (center * 2.0 - 2.0))) / (1.5_f32).sqrt()).abs();
+            if diag < 1.1 && xf >= 10.0 && xf <= doc_right && yf >= doc_top + 2.0 && yf <= doc_bottom + 1.0 {
+                r = 82.0;
+                g = 223.0;
+                b = 205.0;
+                alpha = 1.0;
+            }
+            // arrow head
+            if xf > doc_right - 4.5 && yf <= doc_top + 5.5 {
+                let tip = (yf - (doc_top + 1.0)) - (-(xf - (doc_right - 1.5)));
+                if tip <= 0.8 {
+                    r = 98.0;
+                    g = 228.0;
+                    b = 210.0;
+                    alpha = 1.0;
+                }
+            }
+
+            rgba[idx] = (r.clamp(0.0, 255.0) * 1.0) as u8;
+            rgba[idx + 1] = (g.clamp(0.0, 255.0) * 1.0) as u8;
+            rgba[idx + 2] = (b.clamp(0.0, 255.0) * 1.0) as u8;
+            rgba[idx + 3] = (alpha.clamp(0.0, 1.0) * 255.0) as u8;
         }
     }
 

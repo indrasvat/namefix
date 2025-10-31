@@ -2,10 +2,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import type { ILogger } from '../../types/index';
-import { logsPath } from '../../utils/paths.js';
-
-const LOG_DIR = logsPath('namefix');
-const LOG_FILE = path.join(LOG_DIR, 'session.log');
+import { logsDir } from '../../utils/paths.js';
 
 type Level = 'info' | 'warn' | 'error' | 'debug';
 
@@ -13,14 +10,17 @@ export class Logger implements ILogger {
   private stream: fs.WriteStream | null = null;
   private ring: string[] = [];
   private max = 500;
+  private logFile: string | null = null;
 
   constructor() {
     this.init().catch(() => {/* ignore */});
   }
 
   private async init() {
-    await fsp.mkdir(LOG_DIR, { recursive: true });
-    this.stream = fs.createWriteStream(LOG_FILE, { flags: 'a', encoding: 'utf8' });
+    const dir = logsDir('namefix');
+    await fsp.mkdir(dir, { recursive: true });
+    this.logFile = path.join(dir, 'session.log');
+    this.stream = fs.createWriteStream(this.logFile, { flags: 'a', encoding: 'utf8' });
   }
 
   private pushRing(line: string) {

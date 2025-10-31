@@ -5,7 +5,7 @@ mod ipc;
 mod tray;
 
 use bridge::{init_bridge, BridgeState};
-use tauri::Manager;
+use tauri::{Manager, WindowEvent};
 use ipc::{
     add_watch_dir,
     get_status,
@@ -36,6 +36,12 @@ fn autostart_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 fn main() {
     tauri::Builder::default()
         .plugin(autostart_plugin())
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             add_watch_dir,
             get_status,
@@ -54,14 +60,17 @@ fn main() {
             let app_handle = app.handle().clone();
             match tauri::async_runtime::block_on(async { init_bridge(&app_handle).await }) {
                 Ok(bridge) => {
-                    let tray_state = init_tray(app, &bridge)
-                        .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)?;
-                    register_status_listener(app);
+                    let tray_state = init_tray(&app_handle, &bridge)
+                        .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
+                    register_status_listener(&app_handle);
                     app.manage::<BridgeState>(bridge);
                     app.manage::<TrayState>(tray_state);
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.hide();
+                    }
                     Ok(())
                 }
-                Err(err) => Err(Box::new(err) as Box<dyn std::error::Error>),
+                Err(err) => Err(err.into()),
             }
         })
         .run(tauri::generate_context!())

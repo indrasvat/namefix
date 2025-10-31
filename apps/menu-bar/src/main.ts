@@ -24,19 +24,46 @@ const refreshButton = document.querySelector<HTMLButtonElement>('#refresh-button
 const addDirectoryForm = document.querySelector<HTMLFormElement>('#add-directory-form');
 const addDirectoryInput = document.querySelector<HTMLInputElement>('#new-directory');
 const toastContainer = document.querySelector<HTMLDivElement>('#toast');
+const metricRunning = document.querySelector<HTMLSpanElement>('#metric-running');
+const metricDirectories = document.querySelector<HTMLSpanElement>('#metric-directories');
+const metricDryRun = document.querySelector<HTMLSpanElement>('#metric-dry-run');
+const metricLaunch = document.querySelector<HTMLSpanElement>('#metric-launch');
+const tabButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-tab-target]'));
+const tabViews = Array.from(document.querySelectorAll<HTMLElement>('[data-tab]'));
 
 let currentStatus: ServiceStatus | null = null;
 let toastTimeout: ReturnType<typeof setTimeout> | null = null;
 
+function activateTab(name: string) {
+  tabButtons.forEach((button) => {
+    button.classList.toggle('active', button.dataset.tabTarget === name);
+  });
+  tabViews.forEach((view) => {
+    view.classList.toggle('active', view.dataset.tab === name);
+  });
+}
+
+tabButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    const target = button.dataset.tabTarget ?? 'overview';
+    activateTab(target);
+  });
+});
+
+if (tabButtons.length && tabViews.length) {
+  activateTab('overview');
+}
+
 function formatSummary(status: ServiceStatus): string {
   const dirCount = status.directories.length;
   const dirLabel = dirCount === 1 ? 'directory' : 'directories';
+  const dry = status.dryRun ? ' • dry run' : '';
   if (!dirCount) {
-    return status.running ? 'Watching (no directories configured)' : 'Paused — add a directory to begin';
+    return status.running ? `Watching • no directories${dry}` : `Paused • add a directory${dry}`;
   }
   return status.running
-    ? `Watching ${dirCount} ${dirLabel}${status.dryRun ? ' (dry run)' : ''}`
-    : `Paused — ${dirCount} ${dirLabel} configured${status.dryRun ? ' (dry run)' : ''}`;
+    ? `Watching • ${dirCount} ${dirLabel}${dry}`
+    : `Paused • ${dirCount} ${dirLabel}${dry}`;
 }
 
 function showToast(message: string, level: 'info' | 'warn' | 'error' = 'info') {
@@ -46,6 +73,7 @@ function showToast(message: string, level: 'info' | 'warn' | 'error' = 'info') {
   if (toastTimeout) clearTimeout(toastTimeout);
   toastTimeout = setTimeout(() => {
     toastContainer.textContent = '';
+    delete toastContainer.dataset.level;
   }, 4000);
 }
 
@@ -55,6 +83,7 @@ function renderDirectories(status: ServiceStatus) {
 
   if (!status.directories.length) {
     const empty = document.createElement('li');
+    empty.className = 'directory-item';
     empty.textContent = 'No directories configured yet';
     directoriesList.appendChild(empty);
     return;
@@ -62,12 +91,27 @@ function renderDirectories(status: ServiceStatus) {
 
   status.directories.forEach((directory) => {
     const item = document.createElement('li');
+    item.className = 'directory-item';
+
+    const text = document.createElement('div');
+    text.className = 'directory-text';
+
+    const chip = document.createElement('span');
+    chip.className = 'directory-chip';
+    const sanitized = directory.replace(/[/\\]+$/, '');
+    const segments = sanitized.split(/[/\\]/).filter(Boolean);
+    const baseName = segments.length ? segments[segments.length - 1] : directory;
+    chip.textContent = baseName || '/';
+
     const label = document.createElement('span');
+    label.className = 'directory-path';
     label.textContent = directory;
+
+    text.append(chip, label);
 
     const removeButton = document.createElement('button');
     removeButton.type = 'button';
-    removeButton.className = 'secondary';
+    removeButton.className = 'button-ghost';
     removeButton.textContent = 'Remove';
     removeButton.addEventListener('click', async () => {
       removeButton.disabled = true;
@@ -83,7 +127,7 @@ function renderDirectories(status: ServiceStatus) {
       }
     });
 
-    item.append(label, removeButton);
+    item.append(text, removeButton);
     directoriesList.appendChild(item);
   });
 }
@@ -95,6 +139,22 @@ function renderStatus(status: ServiceStatus) {
   if (toggleButton) toggleButton.textContent = status.running ? 'Pause Watching' : 'Start Watching';
   if (dryRunToggle) dryRunToggle.checked = status.dryRun;
   if (launchToggle) launchToggle.checked = status.launchOnLogin;
+  if (metricRunning) {
+    metricRunning.textContent = status.running ? 'Watching' : 'Paused';
+    metricRunning.dataset.state = status.running ? 'accent' : 'muted';
+  }
+  if (metricDirectories) {
+    metricDirectories.textContent = String(status.directories.length);
+    metricDirectories.dataset.state = status.directories.length ? 'active' : 'muted';
+  }
+  if (metricDryRun) {
+    metricDryRun.textContent = status.dryRun ? 'Enabled' : 'Disabled';
+    metricDryRun.dataset.state = status.dryRun ? 'warn' : 'muted';
+  }
+  if (metricLaunch) {
+    metricLaunch.textContent = status.launchOnLogin ? 'Enabled' : 'Disabled';
+    metricLaunch.dataset.state = status.launchOnLogin ? 'active' : 'muted';
+  }
   renderDirectories(status);
 }
 
