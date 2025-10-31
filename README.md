@@ -1,15 +1,12 @@
-# Namefix
+# namefix
 
-Namefix is a macOS-first screenshot renamer that keeps your desktop tidy.  
-It ships three coordinated entry points that all share the same core service:
+Namefix is a macOS-first screenshot renamer that keeps your desktop tidy. It ships three coordinated entry points that all share the same core service:
 
-- **CLI / TUI** &mdash; an interactive terminal dashboard for power users.
-- **Menu bar companion** &mdash; a tray app with live status, start/stop, undo, and directory management.
-- **Automation hooks** &mdash; launchd plist generation so you can run the watcher at login.
+- **CLI / TUI** — an interactive terminal dashboard for power users.
+- **Menu bar companion** — a tray app with live status, start/stop, undo, and directory management.
+- **Automation hooks** — launchd plist generation so you can run the watcher at login.
 
-The service watches one or more folders (Desktop by default), renames new screenshots using
-your preferred prefix (defaults to `Screenshot`), and persists its settings on disk so every surface
-stays in sync.
+The service watches one or more folders (Desktop by default), renames new screenshots using your preferred prefix (defaults to `Screenshot`), and persists its settings on disk so every surface stays in sync.
 
 ---
 
@@ -30,12 +27,11 @@ The project currently targets macOS. Linux paths follow the XDG directory conven
 ```
 apps/menu-bar/      # Tauri + Vite menu bar front-end
 src/                # Shared service, CLI, TUI implementation
-scripts/            # Helper scripts (set-version, release utilities)
-.github/workflows/  # CI/CD (packaging + release)
+scripts/            # Helper scripts (set-version, release automation)
+.github/workflows/  # CI/CD (semantic-release packaging)
 ```
 
-Configuration lives in `~/Library/Application Support/namefix/config.json`
-(or the XDG equivalent). Logs are written to `~/Library/Logs/namefix/`.
+Config lives in `~/Library/Application Support/namefix/config.json` (or the XDG equivalent). Logs land in `~/Library/Logs/namefix/`.
 
 ---
 
@@ -51,30 +47,27 @@ npm --prefix apps/menu-bar ci   # menu bar dependencies (optional unless you bui
 ### 2. Build the shared service
 
 ```bash
-npm run build      # compiles the TypeScript core + CLI
+npm run build
 ```
 
-This produces the distributable CLI/TUI under `dist/cli`.
+This compiles the shared service/CLI and produces distributables under `dist/cli`.
 
 ---
 
-## Using the CLI / TUI
+## CLI / TUI usage
 
-After running `npm run build`, the `namefix` binary is available on your `PATH`
-via `bin/namefix.js`.
+After building, `bin/namefix.js` is available on your PATH.
 
 ```bash
-# launch the interactive terminal UI (defaults to ~/Desktop, dry-run mode)
+# interactive terminal UI (defaults to ~/Desktop, dry-run mode)
 namefix
 
-# common flags
-namefix --watch ~/Screenshots --live             # start live without dry-run
+# flag examples
+namefix --watch ~/Screenshots --live             # start live instead of dry-run
 namefix --prefix "Capture" --include "Capture*"  # customise naming + filters
 namefix --print-launchd                          # emit launchd plist for automation
 namefix --version
 ```
-
-All CLI options:
 
 | Flag | Description |
 |------|-------------|
@@ -88,44 +81,35 @@ All CLI options:
 | `--print-launchd` | Print a launchd plist to stdout. |
 | `--version` | Output current version. |
 
-The TUI exposes the same controls interactively (start/stop, dry-run toggle, directory list, undo).
+The TUI mirrors these controls (start/stop, dry-run, undo, directory management).
 
 ---
 
-## Running the menu bar companion
+## Menu bar companion
 
-### Development (hot reload)
+### Development
 
 ```bash
 npm run menubar
 ```
 
-This builds the shared service, spins up Vite, and launches Tauri in dev mode.
-A tray icon labelled **Namefix** appears with the following menu items:
+This builds the shared service, starts Vite, and launches Tauri. The tray icon exposes Pause/Start, Dry Run, Launch on Login, Undo Last Rename, Preferences…, and Quit.
 
-- **Pause/Start Watching** &mdash; toggles the watcher service.
-- **Dry Run** &mdash; preview renames without mutating files.
-- **Launch on Login** &mdash; enables autostart.
-- **Undo Last Rename** &mdash; reverts the most recent rename (keeps a short journal).
-- **Preferences…** &mdash; opens the HTML control centre (watch directories, status).
-- **Quit Namefix**.
+### Preferences window
 
-The Preferences window mirrors the CLI controls: metrics, toggles, undo, and directory CRUD.
+The Preferences window shows an Overview tab (metrics, controls, undo, live status) and a Directories tab for managing watch folders. Changes propagate instantly to the CLI and tray menu.
 
-### Building a distributable app
+### Building a distributable
 
 ```bash
-npm run build                              # ensure the core is compiled
-npm --prefix apps/menu-bar run tauri:build # produces macOS bundles under apps/menu-bar/src-tauri/target/release/bundle
+npm run build
+npm --prefix apps/menu-bar run tauri:build
 ```
 
-Outputs include:
+Outputs appear under `apps/menu-bar/src-tauri/target/release/bundle/macos/`:
 
-- `*.app` &mdash; the unsigned app bundle (zip it before distribution).
-- `*.dmg` &mdash; unsigned disk image you can share with testers.
-
-> **Note:** The artifacts are unsigned. On first launch macOS will require
-> right-click → “Open” to bypass Gatekeeper.
+- `.app` bundle (zip before sharing) and `.dmg` disk image.
+- Builds are unsigned; right-click → “Open” on first launch. Add signing credentials to the workflow if you need notarisation.
 
 ---
 
@@ -134,45 +118,27 @@ Outputs include:
 | Setting | Surfaces | Notes |
 |---------|----------|-------|
 | Watch directories (`watchDirs`) | Preferences window, TUI | Stored in `config.json`; first entry is primary. |
-| Dry run / live | Tray toggle, TUI, CLI flags | Defaults to dry-run to protect your files on first run. |
-| Launch on login | Tray toggle | Uses Tauri’s autostart plugin on macOS (login items). |
-| Rename prefix / globs | CLI flags today | Planned UI surface later; persists in config. |
-| Undo history | Tray `Undo Last Rename`, TUI shortcuts | Journal stored in `~/Library/Application Support/namefix`. |
-
-Change a setting in any surface and it will broadcast to the others immediately.
+| Dry run / live | Tray toggle, TUI, CLI flags | Defaults to dry-run to keep first runs safe. |
+| Launch on login | Tray toggle | Uses Tauri autostart plugin on macOS (login items). |
+| Prefix / include / exclude | CLI flags today | Persisted in config; UI exposure planned. |
+| Undo history | Tray undo, TUI | Journal stored alongside config. |
 
 ---
 
 ## Release workflow
 
-Releases are automated through [semantic-release](https://semantic-release.gitbook.io/semantic-release/).
-Push (or merge) to the `main` branch with [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) messages and the `Release` workflow will:
+Releases are automated via [semantic-release](https://semantic-release.gitbook.io/semantic-release/). Push (or merge) to `main` using [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) messages and the `Release` workflow will:
 
-1. Determine the next semantic version based on commit history.
-2. Update `package.json`, `apps/menu-bar/package.json`, the Tauri config, both lockfiles, and `CHANGELOG.md` via `scripts/set-version.mjs` and semantic-release plugins.
-3. Build the CLI and the Tauri bundle, packaging the `.app` and `.dmg` artifacts.
-4. Publish a GitHub release with the generated changelog and downloadable artifacts, then push the version bump back to `main` (tag + changelog commit).
+1. Determine the next semantic version.
+2. Update `package.json`, `apps/menu-bar/package.json`, both lockfiles, the Tauri config, and `CHANGELOG.md`.
+3. Build the CLI and the Tauri bundle, packaging unsigned `.app.zip` and `.dmg` artifacts.
+4. Publish a GitHub release with those artifacts and the generated changelog, pushing the version bump + tag back to `main`.
 
-To cut a release:
-
-```bash
-# ensure commits into main follow Conventional Commit syntax, e.g.
-git commit -m "feat: add menubar directory picker"
-
-# once merged into main the CI workflow handles versioning, tagging, and publishing.
-```
-
-If you prefer to trigger a release manually (for example when testing), you can run:
+Local dry-run (requires a GitHub token with `repo` scope):
 
 ```bash
-npm run release
+GITHUB_TOKEN=<token> npm run release
 ```
-
-and provide a `GITHUB_TOKEN` with `contents:write` permissions in your environment.
-
-> **Signed builds:** artifacts are unsigned by default. Extend `.github/workflows/release.yml`
-> with your signing/notarisation credentials (`TAURI_SIGNING_PRIVATE_KEY`, etc.) to produce
-> notarised builds.
 
 ---
 
@@ -184,18 +150,16 @@ and provide a `GITHUB_TOKEN` with `contents:write` permissions in your environme
 | `npm run typecheck` | Type-only check with `tsc --noEmit`. |
 | `npm run menubar` | Start the Tauri dev server with Vite. |
 | `npm --prefix apps/menu-bar run tauri:build` | Produce release bundles locally. |
-| `npm run test` | Run the current Vitest suite. |
+| `npm run test` | Run Vitest suite. |
 | `npm run release` | Run semantic-release locally (requires `GITHUB_TOKEN`). |
-| `npm run biome` / `npm run format` / `npm run lint` | Code quality tooling (Biome). |
+| `npm run biome` / `npm run format` / `npm run lint` | Biome code-quality tooling. |
 
 ---
 
 ## Known limitations
 
-- Menu bar builds generated in CI are **unsigned**. Users must right-click → “Open”
-  the first time they launch the app.
-- The screenshot renamer still under active development. If you see duplicate rename attempts
-  (files ending in `_2`), restart the watcher; we’re tracking that edge case in upcoming work.
+- Menu bar bundles are currently unsigned; users must right-click → “Open” the first time. Add signing creds in CI for notarised builds.
+- A rare double-rename is still under investigation; restarting the watcher clears it for now.
 
 ---
 
