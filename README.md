@@ -35,6 +35,12 @@ Config lives in `~/Library/Application Support/namefix/config.json` (or the XDG 
 
 ---
 
+## Releases
+
+Semantic Release runs on every push to `main`, evaluates conventional commits, and publishes the next `v*` tag plus macOS artifacts automatically. Avoid creating git tags by hand—let the workflow own versioning.
+
+---
+
 ## Getting started
 
 ### 1. Install dependencies
