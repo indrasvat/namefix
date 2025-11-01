@@ -1,10 +1,7 @@
 import path from 'node:path';
 
 function pad2(n: number): string {
-  if (n < 10) {
-    return `0${n}`;
-  }
-  return String(n);
+  return String(n).padStart(2, '0');
 }
 
 export function formatTimestamp(d: Date): string {

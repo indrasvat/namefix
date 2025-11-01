@@ -6,7 +6,7 @@ description = "Namefix menu bar companion"
 license = "MIT"
 
 [build-dependencies]
-tauri-build = { version = "2.5.1", features = [] }
+tauri-build = { version = "2.5.1" }
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

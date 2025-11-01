@@ -37,7 +37,7 @@ await service.init();
 await service.start();
 
 const emitterUnsubs = [];
-const SHUTDOWN_DELAY_MS = 10; // allow stdout flush before exiting the sidecar
+const SHUTDOWN_DELAY_MS = 100; // allow stdout flush before exiting the sidecar
 
 function sendMessage(payload) {
   stdout.write(`${JSON.stringify(payload)}\n`);

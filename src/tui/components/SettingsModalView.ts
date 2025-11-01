@@ -1,18 +1,12 @@
 import blessed from 'blessed';
 import { BaseView } from '../BaseView.js';
 import type { Theme } from '../ThemeManager.js';
+import type { IConfig } from '../../types/index.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
-type Settings = {
-  watchDir: string;
-  prefix: string;
-  include: string[];
-  exclude: string[];
-  dryRun: boolean;
-  theme: string;
-};
+type Settings = Pick<IConfig, 'watchDir' | 'prefix' | 'include' | 'exclude' | 'dryRun' | 'theme'>;
 
 type FormValues = Record<string, unknown>;
 

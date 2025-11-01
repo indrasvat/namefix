@@ -85,7 +85,7 @@ export class ConfigStore implements IConfigStore {
       this.current = valid;
       return valid;
     } catch (err: unknown) {
-      if (isNodeError(err) && (err.code === 'ENOENT' || err.code === 'JSON_PARSE')) {
+      if ((isNodeError(err) && err.code === 'ENOENT') || err instanceof SyntaxError) {
         this.current = DEFAULT_CONFIG;
         await this.persist(DEFAULT_CONFIG);
         return DEFAULT_CONFIG;

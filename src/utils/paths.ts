@@ -8,11 +8,6 @@ function ensureTrailing(app: string) {
   return app && app.length > 0 ? app : 'namefix';
 }
 
-function resolveXdgDir(envVar: string | undefined, fallbackSegments: string[]): string {
-  if (envVar && envVar.length > 0) return path.join(envVar, ...fallbackSegments);
-  return path.join(homeDir, ...fallbackSegments);
-}
-
 export function configDir(app = 'namefix') {
   const appName = ensureTrailing(app);
   const override = process.env.NAMEFIX_HOME;

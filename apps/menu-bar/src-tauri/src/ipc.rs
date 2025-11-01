@@ -24,30 +24,20 @@ pub async fn list_directories(state: tauri::State<'_, BridgeState>) -> tauri::Re
     map_bridge_err(bridge::list_directories(&state).await)
 }
 
-#[derive(Debug, Deserialize)]
-pub struct LaunchOnLoginRequest {
-    pub enabled: bool,
-}
-
 #[tauri::command]
 pub async fn set_launch_on_login(
     state: tauri::State<'_, BridgeState>,
-    payload: LaunchOnLoginRequest,
+    enabled: bool,
 ) -> tauri::Result<bool> {
-    map_bridge_err(bridge::set_launch_on_login(&state, payload.enabled).await)
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SetDryRunRequest {
-    pub enabled: bool,
+    map_bridge_err(bridge::set_launch_on_login(&state, enabled).await)
 }
 
 #[tauri::command]
 pub async fn set_dry_run(
     state: tauri::State<'_, BridgeState>,
-    payload: SetDryRunRequest,
+    enabled: bool,
 ) -> tauri::Result<ServiceStatus> {
-    map_bridge_err(bridge::set_dry_run(&state, payload.enabled).await)
+    map_bridge_err(bridge::set_dry_run(&state, enabled).await)
 }
 
 #[tauri::command]
