@@ -1,6 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import type { IConfig, IConfigStore, IWatchService } from '../types/index.js';
+import type { IConfig, IConfigStore, IWatchService, ILogger } from '../types/index.js';
 import { ConfigStore } from './config/ConfigStore.js';
 import { Logger } from './log/Logger.js';
 import { EventBus } from './events/EventBus.js';
@@ -20,7 +20,7 @@ import { TypedEmitter } from '../utils/TypedEmitter.js';
 export class NamefixService {
   private emitter = new TypedEmitter<ServiceEventMap>();
   private configStore: IConfigStore;
-  private logger: Logger;
+  private logger: ILogger;
   private eventBus: EventBus;
   private renamer: RenameService;
   private fsSafe: FsSafe;
@@ -36,7 +36,7 @@ export class NamefixService {
   constructor(
     deps: {
       configStore?: IConfigStore;
-      logger?: Logger;
+      logger?: ILogger;
       eventBus?: EventBus;
       fsSafe?: FsSafe;
       renamer?: RenameService;
@@ -310,10 +310,11 @@ export class NamefixService {
         this.emit('file', { kind: 'applied', directory, file: basename, target: targetBase, timestamp: Date.now() });
         this.eventBus.emit('file:renamed', { from: ev.path, to: targetPath });
       } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : 'rename failed';
-        this.logger.error(e instanceof Error ? e : String(e));
+        const error = e instanceof Error ? e : new Error(String(e));
+        const message = error.message || 'rename failed';
+        this.logger.error(error);
         this.emit('file', { kind: 'error', directory, file: basename, timestamp: Date.now(), message });
-        this.eventBus.emit('file:error', { path: ev.path, error: e });
+        this.eventBus.emit('file:error', { path: ev.path, error });
       }
     } finally {
       this.renamer.release(dir, targetBase);

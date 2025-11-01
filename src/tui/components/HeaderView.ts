@@ -31,7 +31,7 @@ export class HeaderView extends BaseView {
     if (!this.box) return;
     const mode = this.dryRun ? '{yellow-fg}[DRY-RUN]{/yellow-fg}' : '{green-fg}[LIVE]{/green-fg}';
     this.box.setContent(` namefix  ${mode}`);
-    const style: blessed.Widgets.BoxStyle = { fg: this.theme?.fg || 'white', bg: this.theme?.bg || 'black' };
+    const style: blessed.Widgets.BoxOptions['style'] = { fg: this.theme?.fg || 'white', bg: this.theme?.bg || 'black' };
     this.box.style = style;
     this.screen.render();
   }

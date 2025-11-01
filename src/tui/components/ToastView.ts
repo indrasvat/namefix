@@ -25,7 +25,7 @@ export class ToastView extends BaseView {
     this.timer = setTimeout(() => { this.box.hide(); this.screen.render(); }, 2000);
   }
 
-  private getStyleForLevel(level: 'info' | 'warn' | 'error'): blessed.Widgets.BoxStyle {
+  private getStyleForLevel(level: 'info' | 'warn' | 'error'): blessed.Widgets.BoxOptions['style'] {
     if (level === 'error') {
       return { fg: 'white', bg: 'red' };
     }
