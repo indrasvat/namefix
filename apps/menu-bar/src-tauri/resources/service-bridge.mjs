@@ -16,6 +16,14 @@ console.log = logToStderr('LOG');
 console.warn = logToStderr('WARN');
 console.error = logToStderr('ERROR');
 
+stdout.on('error', (err) => {
+  if (typeof err === 'object' && err !== null && 'code' in err && (err.code === 'EPIPE' || err.code === 'ERR_STREAM_WRITE_AFTER_END')) {
+    exit(0);
+    return;
+  }
+  throw err;
+});
+
 function logDebug(message, extra = {}) {
   stderr.write(`${new Date().toISOString()} service-bridge ${message} ${JSON.stringify(extra)}\n`);
 }

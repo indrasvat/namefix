@@ -1,6 +1,5 @@
 use crate::bridge::{self, BridgeState, ServiceStatus};
 use anyhow::anyhow;
-use serde::Deserialize;
 
 fn map_bridge_err<T>(result: Result<T, String>) -> tauri::Result<T> {
     result.map_err(|err| tauri::Error::Anyhow(anyhow!(err)))
