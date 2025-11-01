@@ -14,7 +14,7 @@ The service watches one or more folders (Desktop by default), renames new screen
 
 | Component | Requirements |
 |-----------|--------------|
-| CLI / TUI | macOS, Node.js ≥ 20, `npm` |
+| CLI / TUI | macOS, Node.js ≥ 20, `pnpm` ≥ 9 |
 | Menu bar (dev) | CLI requirements + Rust toolchain + Xcode command line tools |
 | Menu bar (packaged build) | macOS host (GitHub runner or local) with the above toolchain |
 
@@ -40,14 +40,13 @@ Config lives in `~/Library/Application Support/namefix/config.json` (or the XDG 
 ### 1. Install dependencies
 
 ```bash
-npm ci
-npm --prefix apps/menu-bar ci   # menu bar dependencies (optional unless you build the tray app)
+pnpm install
 ```
 
 ### 2. Build the shared service
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 This compiles the shared service/CLI and produces distributables under `dist/cli`.
@@ -90,7 +89,7 @@ The TUI mirrors these controls (start/stop, dry-run, undo, directory management)
 ### Development
 
 ```bash
-npm run menubar
+pnpm run menubar
 ```
 
 This builds the shared service, starts Vite, and launches Tauri. The tray icon exposes Pause/Start, Dry Run, Launch on Login, Undo Last Rename, Preferences…, and Quit.
@@ -102,8 +101,8 @@ The Preferences window shows an Overview tab (metrics, controls, undo, live stat
 ### Building a distributable
 
 ```bash
-npm run build
-npm --prefix apps/menu-bar run tauri:build
+pnpm run build
+pnpm --filter @namefix/menu-bar run tauri:build
 ```
 
 Outputs appear under `apps/menu-bar/src-tauri/target/release/bundle/macos/`:
@@ -146,20 +145,19 @@ GITHUB_TOKEN=<token> npm run release
 
 | Command | Description |
 |---------|-------------|
-| `npm run build` | Compile the shared TypeScript sources (CLI/TUI). |
-| `npm run typecheck` | Type-only check with `tsc --noEmit`. |
-| `npm run menubar` | Start the Tauri dev server with Vite. |
-| `npm --prefix apps/menu-bar run tauri:build` | Produce release bundles locally. |
-| `npm run test` | Run Vitest suite. |
-| `npm run release` | Run semantic-release locally (requires `GITHUB_TOKEN`). |
-| `npm run biome` / `npm run format` / `npm run lint` | Biome code-quality tooling. |
+| `pnpm run build` | Compile the shared TypeScript sources (CLI/TUI). |
+| `pnpm run typecheck` | Type-only check with `tsc --noEmit`. |
+| `pnpm run menubar` | Start the Tauri dev server with Vite. |
+| `pnpm --filter @namefix/menu-bar run tauri:build` | Produce release bundles locally. |
+| `pnpm test` | Run Vitest suite. |
+| `pnpm run release` | Run semantic-release locally (requires `GITHUB_TOKEN`). |
+| `pnpm run biome` / `pnpm run format` / `pnpm run lint` | Biome code-quality tooling. |
 
 ---
 
 ## Known limitations
 
 - Menu bar bundles are currently unsigned; users must right-click → “Open” the first time. Add signing creds in CI for notarised builds.
-- A rare double-rename is still under investigation; restarting the watcher clears it for now.
 
 ---
 
