@@ -304,6 +304,21 @@ export class NamefixService {
         return;
       }
 
+      if (!(await pathExists(ev.path))) {
+        let restored = false;
+        for (let i = 0; i < 6; i++) {
+          await delay(150);
+          if (await pathExists(ev.path)) {
+            restored = true;
+            break;
+          }
+        }
+        if (!restored) {
+          this.logger.warn('source disappeared before rename', { path: ev.path });
+          return;
+        }
+      }
+
       try {
         await this.fsSafe.atomicRename(ev.path, targetPath);
         await this.journal.record(ev.path, targetPath);
@@ -354,4 +369,17 @@ export class NamefixService {
   private normalizePath(dir: string): string {
     return path.resolve(dir.trim());
   }
+}
+
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

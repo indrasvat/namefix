@@ -23,7 +23,7 @@ export class FsSafe {
 
   async atomicRename(from: string, to: string): Promise<void> {
     await fs.mkdir(path.dirname(to), { recursive: true });
-    const maxAttempts = 6;
+    const maxAttempts = 10;
     for (let i = 0; i < maxAttempts; i++) {
       try {
         await fs.rename(from, to);
@@ -34,7 +34,7 @@ export class FsSafe {
           continue;
         }
         if (isMissingError(err) && i < maxAttempts - 1) {
-          await delay(75 + Math.floor(Math.random() * 150));
+          await delay(150 + Math.floor(Math.random() * 250));
           continue;
         }
         throw err;
