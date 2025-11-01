@@ -5,7 +5,8 @@ const isMac = process.platform === 'darwin';
 const homeDir = os.homedir();
 
 function ensureTrailing(app: string) {
-  return app && app.length > 0 ? app : 'namefix';
+  const trimmed = app?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : 'namefix';
 }
 
 export function configDir(app = 'namefix') {
