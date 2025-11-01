@@ -1,3 +1,10 @@
+## [0.2.2](https://github.com/indrasvat/namefix/compare/v0.2.1...v0.2.2) (2025-11-01)
+
+
+### Bug Fixes
+
+* **ci:** package mac artifacts in releases ([9c9abbb](https://github.com/indrasvat/namefix/commit/9c9abbb0737828f4457a1153619762d1c89f09f1))
+
 ## [0.2.1](https://github.com/indrasvat/namefix/compare/v0.2.0...v0.2.1) (2025-11-01)
 
 
