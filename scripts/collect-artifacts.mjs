@@ -6,40 +6,55 @@ import { execSync } from 'node:child_process';
 
 const artifactsDir = path.resolve('artifacts');
 const bundleRoot = path.resolve('apps/menu-bar/src-tauri/target/release/bundle');
-const macBundleDir = path.join(bundleRoot, 'macos');
+const bundleDirs = () => {
+  if (!fs.existsSync(bundleRoot)) return [];
+  return fs
+    .readdirSync(bundleRoot)
+    .map((name) => path.join(bundleRoot, name))
+    .filter((dir) => fs.existsSync(dir) && fs.statSync(dir).isDirectory());
+};
 
 function ensureCleanDir(dir) {
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
 }
 
-function copyIfExists(globExt) {
-  if (!fs.existsSync(macBundleDir)) return;
-  const entries = fs.readdirSync(macBundleDir).filter((name) => name.endsWith(globExt));
-  for (const entry of entries) {
-    const source = path.join(macBundleDir, entry);
-    const dest = path.join(artifactsDir, entry);
-    fs.copyFileSync(source, dest);
-    console.log(`Copied ${entry}`);
+function copyFromDirs(exts) {
+  for (const dir of bundleDirs()) {
+    for (const entry of fs.readdirSync(dir)) {
+      const match = exts.find((ext) => entry.endsWith(ext));
+      if (!match) continue;
+      const source = path.join(dir, entry);
+      const dest = path.join(artifactsDir, entry);
+      if (fs.statSync(source).isFile()) {
+        fs.copyFileSync(source, dest);
+        console.log(`Copied ${entry}`);
+      }
+    }
   }
 }
 
 function zipApps() {
-  if (!fs.existsSync(macBundleDir)) return;
-  const apps = fs.readdirSync(macBundleDir).filter((name) => name.endsWith('.app'));
-  for (const appName of apps) {
-    const appPath = path.join(macBundleDir, appName);
-    const base = appName.replace(/\.app$/, '');
-    const dest = path.join(artifactsDir, `${base}.app.zip`);
-    execSync(`ditto -c -k --sequesterRsrc --keepParent "${appPath}" "${dest}"`, { stdio: 'inherit' });
-    console.log(`Packaged ${appName} -> ${base}.app.zip`);
+  for (const dir of bundleDirs()) {
+    const apps = fs
+      .readdirSync(dir)
+      .filter((name) => name.endsWith('.app'));
+    for (const appName of apps) {
+      const appPath = path.join(dir, appName);
+      if (!fs.statSync(appPath).isDirectory()) continue;
+      const safeBase = appName.replace(/\.app$/, '');
+      const dest = path.join(artifactsDir, `${safeBase}.app.zip`);
+      execSync(`ditto -c -k --sequesterRsrc --keepParent "${appPath}" "${dest}"`, {
+        stdio: 'inherit',
+      });
+      console.log(`Packaged ${appName} -> ${safeBase}.app.zip`);
+    }
   }
 }
 
 ensureCleanDir(artifactsDir);
 zipApps();
-copyIfExists('.dmg');
-copyIfExists('.zip');
-copyIfExists('.tar.gz');
+copyFromDirs(['.dmg', '.zip', '.tar.gz']);
 
-console.log('Artifacts prepared:', fs.readdirSync(artifactsDir));
+const prepared = fs.readdirSync(artifactsDir);
+console.log('Artifacts prepared:', prepared);
