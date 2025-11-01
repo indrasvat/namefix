@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Namefix > Preferences</title>
+    <style>
+      :root {
+        color-scheme: dark light;
+        font-family: 'SF Pro Display', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        --bg: radial-gradient(140% 140% at 0% 0%, #1b2133 0%, #0a0f1f 45%, #04060c 100%);
+        --bg-light: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        --card-bg: rgba(17, 24, 39, 0.82);
+        --card-border: rgba(94, 109, 136, 0.22);
+        --card-shadow: 0 16px 40px rgba(13, 20, 38, 0.38);
+        --text-primary: #e6edf9;
+        --text-secondary: rgba(170, 189, 219, 0.9);
+        --text-subtle: rgba(170, 189, 219, 0.65);
+        --accent: #38bdf8;
+        --accent-strong: #0ea5e9;
+        --success: #34d399;
+        --warn: #f97316;
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: var(--bg-light);
+          --card-bg: rgba(255, 255, 255, 0.9);
+          --card-border: rgba(148, 163, 184, 0.2);
+          --card-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+          --text-primary: #0f172a;
+          --text-secondary: rgba(30, 41, 59, 0.78);
+          --text-subtle: rgba(30, 41, 59, 0.6);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 12px 8px 18px;
+        background: var(--bg);
+        color: var(--text-primary);
+        overflow: hidden;
+      }
+
+      main.shell {
+        width: clamp(520px, 62vw, 580px);
+        height: min(568px, calc(100vh - 24px));
+        padding: 12px 16px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        border-radius: 18px;
+        border: 1px solid rgba(94, 109, 136, 0.18);
+        background: rgba(8, 12, 24, 0.35);
+        box-shadow: 0 18px 40px rgba(7, 12, 25, 0.38);
+        backdrop-filter: blur(20px);
+      }
+
+      .tab-strip {
+        display: flex;
+        gap: 6px;
+        background: rgba(21, 27, 45, 0.65);
+        border-radius: 12px;
+        padding: 4px;
+        border: 1px solid rgba(94, 109, 136, 0.2);
+        box-shadow: 0 5px 16px rgba(5, 10, 24, 0.3);
+      }
+
+      .tab-button {
+        flex: 1;
+        padding: 0.55rem 0.3rem;
+        border: none;
+        border-radius: 12px;
+        background: transparent;
+        color: var(--text-secondary);
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        transition: all 160ms ease;
+      }
+
+      .tab-button:hover {
+        color: var(--text-primary);
+      }
+
+      .tab-button.active {
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+        color: #ffffff;
+        box-shadow: 0 10px 24px rgba(14, 165, 233, 0.32);
+      }
+
+      .view {
+        display: none;
+        flex-direction: column;
+        gap: 12px;
+        flex: 1 1 0;
+        min-height: 0;
+        overflow-y: auto;
+        padding-right: 4px;
+        scroll-padding-bottom: 12px;
+      }
+
+      .view.active {
+        display: flex;
+      }
+
+      .card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 16px;
+        padding: 14px 16px;
+        box-shadow: var(--card-shadow);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        backdrop-filter: blur(16px);
+      }
+
+      .hero__header {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .hero__eyebrow {
+        font-size: 0.72rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--text-subtle);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.32rem, 2.3vw, 1.62rem);
+      }
+
+      .hero__subtitle {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .metric {
+        padding: 8px 10px;
+        border-radius: 11px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(94, 109, 136, 0.18);
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .metric__label {
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-subtle);
+      }
+
+      .metric__value {
+        font-size: 1.05rem;
+        font-weight: 600;
+      }
+
+      .metric__value[data-state='active'] {
+        color: var(--success);
+      }
+
+      .metric__value[data-state='warn'] {
+        color: var(--warn);
+      }
+
+      .metric__value[data-state='muted'] {
+        color: var(--text-secondary);
+      }
+
+      .metric__value[data-state='accent'] {
+        color: var(--accent);
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 1rem;
+      }
+
+      button {
+        font-family: inherit;
+        font-size: 0.92rem;
+        border: none;
+        border-radius: 11px;
+        padding: 0.6rem 0.95rem;
+        cursor: pointer;
+        transition: transform 120ms ease, box-shadow 120ms ease, background 150ms ease, border-color 150ms ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+      }
+
+      button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      .button-primary {
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+        color: #ffffff;
+        box-shadow: 0 12px 24px rgba(14, 165, 233, 0.28);
+        font-weight: 600;
+      }
+
+      .button-primary:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 30px rgba(14, 165, 233, 0.34);
+      }
+
+      .button-secondary {
+        background: rgba(148, 163, 184, 0.16);
+        color: var(--text-primary);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+      }
+
+      .button-secondary:hover:not(:disabled) {
+        background: rgba(148, 163, 184, 0.24);
+      }
+
+      .button-ghost {
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        padding: 0.45rem 0.8rem;
+      }
+
+      .button-ghost:hover:not(:disabled) {
+        border-color: rgba(148, 163, 184, 0.35);
+        color: var(--text-primary);
+      }
+
+      .primary-action {
+        display: flex;
+        justify-content: flex-start;
+      }
+
+      .control-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .switches {
+        display: grid;
+        gap: 8px;
+      }
+
+      .switch {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        column-gap: 12px;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(94, 109, 136, 0.18);
+        position: relative;
+      }
+
+      .switch input {
+        position: absolute;
+        opacity: 0;
+        inset: 0;
+        cursor: pointer;
+      }
+
+      .switch__track {
+        width: 46px;
+        height: 24px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.3);
+        display: inline-flex;
+        align-items: center;
+        padding: 3px;
+        transition: background 160ms ease;
+      }
+
+      .switch__thumb {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #ffffff;
+        transform: translateX(0);
+        transition: transform 160ms ease, background 160ms ease;
+      }
+
+      .switch input:checked + .switch__track {
+        background: var(--accent);
+      }
+
+      .switch input:checked + .switch__track .switch__thumb {
+        transform: translateX(22px);
+        background: #0f172a;
+      }
+
+      .switch__label {
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+      }
+
+      .status-card header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .overview-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .status-output {
+        margin: 0;
+        padding: 0.7rem;
+        border-radius: 10px;
+        background: rgba(15, 23, 42, 0.58);
+        border: 1px solid rgba(94, 109, 136, 0.2);
+        font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        max-height: 150px;
+        overflow: auto;
+      }
+
+      .directories-card {
+        gap: 14px;
+      }
+
+      .directories-card header {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .card__subtitle {
+        margin: 0;
+        font-size: 0.88rem;
+        color: var(--text-secondary);
+      }
+
+      ul.directories {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 10px;
+      }
+
+      .directory-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 9px 11px;
+        border-radius: 11px;
+        background: rgba(148, 163, 184, 0.08);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        align-items: center;
+      }
+
+      .directory-text {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      .directory-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 600;
+        color: var(--accent);
+        font-size: 0.92rem;
+      }
+
+      .directory-path {
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      form {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      input[type='text'] {
+        flex: 1 1 220px;
+        padding: 0.55rem 0.7rem;
+        border-radius: 9px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        background: rgba(10, 12, 24, 0.28);
+        color: inherit;
+        transition: border-color 150ms ease, box-shadow 150ms ease;
+      }
+
+      input[type='text']:focus {
+        border-color: var(--accent);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.22);
+      }
+
+      .toast {
+        position: fixed;
+        bottom: clamp(16px, 3vw, 28px);
+        left: 50%;
+        transform: translateX(-50%);
+        min-width: min(420px, calc(100vw - 40px));
+        padding: 0.75rem 1rem;
+        border-radius: 14px;
+        background: rgba(15, 118, 110, 0.92);
+        color: #ecfeff;
+        text-align: center;
+        box-shadow: 0 18px 40px rgba(3, 94, 108, 0.35);
+        pointer-events: none;
+        transition: opacity 180ms ease, transform 180ms ease;
+      }
+
+      .toast[data-level='warn'] {
+        background: rgba(245, 158, 11, 0.92);
+        color: #0f172a;
+      }
+
+      .toast[data-level='error'] {
+        background: rgba(239, 68, 68, 0.92);
+        color: #fff;
+      }
+
+      .toast:empty {
+        opacity: 0;
+        transform: translate(-50%, 8px);
+      }
+
+      @media (max-width: 620px) {
+        main.shell {
+          width: calc(100vw - 16px);
+          height: calc(100vh - 16px);
+        }
+
+        .metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .overview-grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+
+        .toast {
+          min-width: calc(100vw - 32px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <nav class="tab-strip">
+        <button type="button" class="tab-button active" data-tab-target="overview">Overview</button>
+        <button type="button" class="tab-button" data-tab-target="directories">Directories</button>
+      </nav>
+
+      <section class="view active" data-tab="overview">
+        <div class="card hero">
+          <header class="hero__header">
+            <h1>Namefix &gt; Preferences</h1>
+            <p class="hero__subtitle" id="status-summary">Connecting…</p>
+          </header>
+          <div class="metrics">
+            <div class="metric">
+              <span class="metric__label">State</span>
+              <span class="metric__value" id="metric-running">—</span>
+            </div>
+            <div class="metric">
+              <span class="metric__label">Directories</span>
+              <span class="metric__value" id="metric-directories">0</span>
+            </div>
+            <div class="metric">
+              <span class="metric__label">Dry Run</span>
+              <span class="metric__value" id="metric-dry-run">—</span>
+            </div>
+            <div class="metric">
+              <span class="metric__label">Launch on Login</span>
+              <span class="metric__value" id="metric-launch">—</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="overview-grid">
+          <div class="card control-card">
+            <h2>Controls</h2>
+            <div class="primary-action">
+              <button id="toggle-running" class="button-primary" type="button">Toggle Watching</button>
+            </div>
+            <div class="switches">
+              <label class="switch">
+                <input type="checkbox" id="dry-run-toggle" />
+                <span class="switch__track" aria-hidden="true">
+                  <span class="switch__thumb"></span>
+                </span>
+                <span class="switch__label">Dry Run Preview</span>
+              </label>
+              <label class="switch">
+                <input type="checkbox" id="launch-login-toggle" />
+                <span class="switch__track" aria-hidden="true">
+                  <span class="switch__thumb"></span>
+                </span>
+                <span class="switch__label">Launch on Login</span>
+              </label>
+            </div>
+            <div class="control-actions">
+              <button id="undo-button" type="button" class="button-secondary">Undo Last Rename</button>
+            </div>
+          </div>
+
+          <div class="card status-card">
+            <header>
+              <h2>Live Service Status</h2>
+              <button id="refresh-button" type="button" class="button-ghost">Refresh</button>
+            </header>
+            <pre id="status" class="status-output" aria-live="polite">{
+  "status": "loading"
+}</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" data-tab="directories">
+        <div class="card directories-card">
+          <header>
+            <h2>Watched Directories</h2>
+            <p class="card__subtitle">Choose which folders Namefix monitors.</p>
+          </header>
+          <ul id="directories" class="directories"></ul>
+          <form id="add-directory-form">
+            <input type="text" id="new-directory" placeholder="/path/to/watch" autocomplete="off" />
+            <button type="submit" class="button-secondary">Add Directory</button>
+          </form>
+        </div>
+      </section>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
