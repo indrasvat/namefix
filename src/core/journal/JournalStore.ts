@@ -3,7 +3,7 @@ import fscb from 'node:fs';
 import path from 'node:path';
 import { stateDir } from '../../utils/paths.js';
 import type { IJournalStore } from '../../types/index';
-import { FsSafe } from '../fs/FsSafe.js';
+import type { FsSafe } from '../fs/FsSafe.js';
 
 type Entry = { from: string; to: string; ts: number };
 
@@ -27,9 +27,11 @@ export class JournalStore implements IJournalStore {
       const data = await fs.readFile(journalPath(), 'utf8');
       const lines = data.split(/\r?\n/).filter(Boolean);
       this.cache = lines.map((l) => JSON.parse(l));
-    } catch (e: any) {
-      if (e && e.code === 'ENOENT') this.cache = [];
-      else this.cache = [];
+    } catch (e: unknown) {
+      if (isNodeError(e) && e.code !== 'ENOENT') {
+        throw e;
+      }
+      this.cache = [];
     }
     return this.cache;
   }
@@ -37,7 +39,7 @@ export class JournalStore implements IJournalStore {
   async record(from: string, to: string): Promise<void> {
     await this.ensure();
     const entry: Entry = { from, to, ts: Date.now() };
-    await fs.appendFile(journalPath(), JSON.stringify(entry) + '\n', 'utf8');
+    await fs.appendFile(journalPath(), `${JSON.stringify(entry)}\n`, 'utf8');
     this.cache.push(entry);
   }
 
@@ -50,8 +52,9 @@ export class JournalStore implements IJournalStore {
       await this.fsSafe.atomicRename(last.to, target);
       await this.rewrite();
       return { ok: true };
-    } catch (e: any) {
-      return { ok: false, reason: e?.message || 'rename_failed' };
+    } catch (e: unknown) {
+      const reason = e instanceof Error ? e.message : 'rename_failed';
+      return { ok: false, reason };
     }
   }
 
@@ -72,7 +75,7 @@ export class JournalStore implements IJournalStore {
   }
 
   private async rewrite() {
-    const tmp = journalPath() + '.tmp';
+    const tmp = `${journalPath()}.tmp`;
     const data = this.cache.map((e) => JSON.stringify(e)).join('\n') + (this.cache.length ? '\n' : '');
     await fs.writeFile(tmp, data, 'utf8');
     await fs.rename(tmp, journalPath());
@@ -85,4 +88,8 @@ export class JournalStore implements IJournalStore {
 
 async function existsSafe(p: string): Promise<boolean> {
   try { await fs.access(p); return true; } catch { return false; }
+}
+
+function isNodeError(err: unknown): err is NodeJS.ErrnoException {
+  return typeof err === 'object' && err !== null && 'code' in err;
 }

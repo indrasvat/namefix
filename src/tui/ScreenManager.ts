@@ -1,6 +1,6 @@
 import blessed from 'blessed';
 import { HeaderView } from './components/HeaderView.js';
-import { EventListView, UiEventItem } from './components/EventListView.js';
+import { EventListView, type UiEventItem } from './components/EventListView.js';
 import { FooterView } from './components/FooterView.js';
 import { ToastView } from './components/ToastView.js';
 import { ThemeManager } from './ThemeManager.js';
@@ -15,7 +15,9 @@ export class ScreenManager {
   dryRun = true;
   private modalOpen = false;
 
-  setModalOpen(v: boolean) { this.modalOpen = v; }
+  setModalOpen(v: boolean) {
+    this.modalOpen = v;
+  }
 
   constructor() {
     this.screen = blessed.screen({ smartCSR: true, title: 'namefix', mouse: true });
@@ -35,12 +37,14 @@ export class ScreenManager {
 
   setDryRun(d: boolean) { this.dryRun = d; this.header.setDryRun(d); }
   addEvent(item: UiEventItem) { this.list.addItem(item); }
-  showToast(msg: string, level: 'info' | 'warn' | 'error' = 'info') { this.toast.show(msg, level); }
+  showToast(msg: string, level: 'info' | 'warn' | 'error' = 'info') {
+    this.toast.show(msg, level);
+  }
 
   applyTheme() {
     const t = this.theme.get();
     this.header.setTheme(t);
-    this.list.setTheme?.(t as any);
+    this.list.setTheme(t);
     this.screen.render();
   }
 }

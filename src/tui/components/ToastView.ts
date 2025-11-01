@@ -18,13 +18,25 @@ export class ToastView extends BaseView {
   show(msg: string, level: 'info' | 'warn' | 'error' = 'info') {
     if (!this.box) return;
     this.box.setContent(msg);
-    this.box.style = level === 'error' ? { fg: 'white', bg: 'red' } : level === 'warn' ? { fg: 'black', bg: 'yellow' } : { fg: 'black', bg: 'green' } as any;
+    this.box.style = this.getStyleForLevel(level);
     this.box.show();
     this.screen.render();
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => { this.box.hide(); this.screen.render(); }, 2000);
   }
 
-  unmount(): void { if (this.timer) clearTimeout(this.timer); this.box?.destroy(); }
-}
+  private getStyleForLevel(level: 'info' | 'warn' | 'error'): blessed.Widgets.BoxStyle {
+    if (level === 'error') {
+      return { fg: 'white', bg: 'red' };
+    }
+    if (level === 'warn') {
+      return { fg: 'black', bg: 'yellow' };
+    }
+    return { fg: 'black', bg: 'green' };
+  }
 
+  unmount(): void {
+    if (this.timer) clearTimeout(this.timer);
+    this.box?.destroy();
+  }
+}

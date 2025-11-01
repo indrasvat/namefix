@@ -84,8 +84,8 @@ export class ConfigStore implements IConfigStore {
       const valid = validateConfig(parsed);
       this.current = valid;
       return valid;
-    } catch (err: any) {
-      if (err && (err.code === 'ENOENT' || err.code === 'JSON_PARSE')) {
+    } catch (err: unknown) {
+      if (isNodeError(err) && (err.code === 'ENOENT' || err.code === 'JSON_PARSE')) {
         this.current = DEFAULT_CONFIG;
         await this.persist(DEFAULT_CONFIG);
         return DEFAULT_CONFIG;
@@ -121,7 +121,7 @@ export class ConfigStore implements IConfigStore {
     const configFile = path.join(cfgDir, 'config.json');
     try {
       await ensureDir(cfgDir);
-      const tmp = configFile + '.tmp';
+      const tmp = `${configFile}.tmp`;
       const data = JSON.stringify(cfg, null, 2);
       await fs.writeFile(tmp, data, 'utf8');
       await fs.rename(tmp, configFile);
@@ -135,4 +135,8 @@ export class ConfigStore implements IConfigStore {
       // In read-only/sandboxed env, skip persistence
     }
   }
+}
+
+function isNodeError(err: unknown): err is NodeJS.ErrnoException {
+  return typeof err === 'object' && err !== null && 'code' in err;
 }

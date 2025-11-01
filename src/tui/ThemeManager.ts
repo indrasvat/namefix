@@ -21,15 +21,25 @@ export class ThemeManager {
   private listeners = new Set<(t: Theme) => void>();
 
   constructor() {
-    this.theme = THEMES['default'] as Theme;
+    this.theme = THEMES.default as Theme;
   }
 
-  get(): Theme { return this.theme as Theme; }
-  names(): string[] { return Object.keys(THEMES); }
+  get(): Theme {
+    return this.theme as Theme;
+  }
+
+  names(): string[] {
+    return Object.keys(THEMES);
+  }
+
   set(name: string) {
-    const next = ((THEMES as Record<string, Theme>)[name] ?? THEMES['default']) as Theme;
+    const next = ((THEMES as Record<string, Theme>)[name] ?? THEMES.default) as Theme;
     this.theme = next as Theme;
     for (const l of this.listeners) l(next as Theme);
   }
-  onChange(cb: (t: Theme) => void) { this.listeners.add(cb); return () => this.listeners.delete(cb); }
+
+  onChange(cb: (t: Theme) => void) {
+    this.listeners.add(cb);
+    return () => this.listeners.delete(cb);
+  }
 }

@@ -14,9 +14,11 @@ type Settings = {
   theme: string;
 };
 
+type FormValues = Record<string, unknown>;
+
 export class SettingsModalView extends BaseView {
-  private modal!: blessed.Widgets.BoxElement;
-  private form!: blessed.Widgets.FormElement<any>;
+  private modal: blessed.Widgets.BoxElement | null = null;
+  private form!: blessed.Widgets.FormElement<FormValues>;
   private onSubmitCb: ((s: Settings) => void) | null = null;
   private onCancelCb: (() => void) | null = null;
 
@@ -26,7 +28,7 @@ export class SettingsModalView extends BaseView {
   private includeInput!: blessed.Widgets.TextboxElement;
   private excludeInput!: blessed.Widgets.TextboxElement;
   private dryRunCheckbox!: blessed.Widgets.CheckboxElement;
-  private themeList!: blessed.Widgets.ListElement;
+  private themeList!: blessed.Widgets.ListElement & { selected?: number };
   private saveBtn!: blessed.Widgets.ButtonElement;
   private cancelBtn!: blessed.Widgets.ButtonElement;
 
@@ -228,7 +230,7 @@ export class SettingsModalView extends BaseView {
       style: labelStyle
     });
     // Create a properly formatted list with clean items
-    const themeItems = themes.map(t => t);  // Ensure clean strings
+    const themeItems = [...themes];
 
     this.themeList = blessed.list({
       parent: this.form,
@@ -269,8 +271,6 @@ export class SettingsModalView extends BaseView {
     const idx = Math.max(0, themes.indexOf(initial.theme));
     this.themeList.select(idx);
     yPos += 8;
-
-    // Footer hint - removed to avoid overlap issues
 
     // Save and Cancel buttons
     this.saveBtn = blessed.button({
@@ -408,7 +408,7 @@ export class SettingsModalView extends BaseView {
     }
 
     // Get selected theme
-    const selIdx = (this.themeList as any).selected as number;
+    const selIdx = this.themeList.selected ?? 0;
     const theme = String(this.themeList.getItem(selIdx)?.content || '').trim() || 'default';
 
     // Parse include/exclude patterns
@@ -447,7 +447,7 @@ export class SettingsModalView extends BaseView {
       theme
     };
 
-    this.onSubmitCb && this.onSubmitCb(settings);
+    this.onSubmitCb?.(settings);
     this.close(true);
   }
 
@@ -464,7 +464,7 @@ export class SettingsModalView extends BaseView {
     }
     if (this.modal) {
       this.modal.destroy();
-      this.modal = null as any;
+      this.modal = null;
     }
     this.screen.render();
     if (!saved && this.onCancelCb) {
@@ -475,7 +475,7 @@ export class SettingsModalView extends BaseView {
   unmount(): void {
     if (this.modal) {
       this.modal.destroy();
-      this.modal = null as any;
+      this.modal = null;
     }
   }
 }

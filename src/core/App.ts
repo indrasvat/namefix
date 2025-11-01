@@ -4,7 +4,7 @@ import { NamefixService } from './NamefixService.js';
 import { ScreenManager } from '../tui/ScreenManager.js';
 import { SettingsModalView } from '../tui/components/SettingsModalView.js';
 
-type Overrides = Partial<{ watchDir: string; prefix: string; include: string[]; exclude: string[]; dryRun: boolean; theme: string }>;
+export type NamefixOverrides = Partial<{ watchDir: string; prefix: string; include: string[]; exclude: string[]; dryRun: boolean; theme: string }>;
 
 export class NamefixApp {
   private service: NamefixService | null = null;
@@ -13,7 +13,7 @@ export class NamefixApp {
   private currentConfig: IConfig | null = null;
   private lastStatus: { running: boolean; directories: string[]; dryRun: boolean } | null = null;
 
-  async start(overrides?: Overrides): Promise<void> {
+  async start(overrides?: NamefixOverrides): Promise<void> {
     this.service = new NamefixService();
     const cfg = await this.service.init(overrides);
     this.currentConfig = cfg;
@@ -32,9 +32,13 @@ export class NamefixApp {
   }
 
   async stop(): Promise<void> {
-    this.subscriptions.forEach((off) => {
-      try { off(); } catch { /* ignore */ }
-    });
+    for (const off of this.subscriptions) {
+      try {
+        off();
+      } catch {
+        // ignore
+      }
+    }
     this.subscriptions = [];
     if (this.service) {
       await this.service.stop();
@@ -93,22 +97,24 @@ export class NamefixApp {
 
   private registerKeybindings() {
     if (!this.service || !this.ui) return;
-    const screen = this.ui.screen;
+    const service = this.service;
+    const ui = this.ui;
+    const screen = ui.screen;
     screen.key(['d'], async () => {
-      const cfg = this.currentConfig ?? this.service!.getConfig();
+      const cfg = this.currentConfig ?? service.getConfig();
       const next = !cfg.dryRun;
       try {
-        await this.service!.setDryRun(next);
+        await service.setDryRun(next);
       } catch (err) {
-        this.ui?.showToast('Failed to toggle dry-run', 'error');
+        ui.showToast('Failed to toggle dry-run', 'error');
       }
     });
 
     screen.key(['u'], async () => {
       try {
-        await this.service!.undoLast();
+        await service.undoLast();
       } catch {
-        this.ui?.showToast('Undo failed', 'error');
+        ui.showToast('Undo failed', 'error');
       }
     });
 
@@ -119,11 +125,13 @@ export class NamefixApp {
 
   private openSettings() {
     if (!this.service || !this.ui || !this.currentConfig) return;
+    const service = this.service;
+    const ui = this.ui;
     const modal = new SettingsModalView();
-    modal.mount(this.ui.screen);
-    this.ui.setModalOpen(true);
+    modal.mount(ui.screen);
+    ui.setModalOpen(true);
     const config = this.currentConfig;
-    const themes = this.ui.theme.names();
+    const themes = ui.theme.names();
     let primaryDir = config.watchDir;
     if (!primaryDir || primaryDir.trim().length === 0) {
       primaryDir = config.watchDirs[0] ?? '';
@@ -139,7 +147,7 @@ export class NamefixApp {
       },
       themes,
       async (next) => {
-        this.ui?.setModalOpen(false);
+        ui.setModalOpen(false);
         try {
           const updates: Array<Promise<unknown>> = [];
           const normalizedNext = path.resolve(next.watchDir);
@@ -147,10 +155,10 @@ export class NamefixApp {
           const lacksPrimary = config.watchDirs.length === 0;
           const watchDirChanged = !currentPrimary || currentPrimary !== normalizedNext;
           if (watchDirChanged || lacksPrimary) {
-            updates.push(this.service!.setWatchDirs([normalizedNext]));
+            updates.push(service.setWatchDirs([normalizedNext]));
           }
           updates.push(
-            this.service!.setConfig({
+            service.setConfig({
               prefix: next.prefix,
               include: next.include,
               exclude: next.exclude,
@@ -159,13 +167,13 @@ export class NamefixApp {
             })
           );
           await Promise.all(updates);
-          this.ui?.showToast('Settings saved', 'info');
+          ui.showToast('Settings saved', 'info');
         } catch {
-          this.ui?.showToast('Failed to save settings', 'error');
+          ui.showToast('Failed to save settings', 'error');
         }
       },
       () => {
-        this.ui?.setModalOpen(false);
+        ui.setModalOpen(false);
       }
     );
   }

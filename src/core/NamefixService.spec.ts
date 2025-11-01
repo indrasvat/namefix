@@ -2,7 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import type { IConfig, IConfigStore, IWatchService, WatchEvent } from '../types/index.js';
+import type { IConfig, IConfigStore, IWatchService, WatchEvent, ILogger } from '../types/index.js';
 import type { ServiceStatus, ServiceFileEvent } from '../types/service.js';
 import { NamefixService } from './NamefixService.js';
 
@@ -22,15 +22,17 @@ class MemoryConfigStore implements IConfigStore {
     if (next.watchDirs) {
       this.cfg.watchDirs = [...next.watchDirs];
       if (!next.watchDir && this.cfg.watchDirs.length > 0) {
-        this.cfg.watchDir = this.cfg.watchDirs[0]!;
+        this.cfg.watchDir = this.cfg.watchDirs[0] ?? '';
       }
     }
     this.cfg = { ...this.cfg, ...next };
     if (!this.cfg.watchDir && this.cfg.watchDirs.length > 0) {
-      this.cfg.watchDir = this.cfg.watchDirs[0]!;
+      this.cfg.watchDir = this.cfg.watchDirs[0] ?? '';
     }
     const snapshot = this.clone();
-    this.listeners.forEach((cb) => cb(snapshot));
+    for (const cb of this.listeners) {
+      cb(snapshot);
+    }
     return snapshot;
   }
 
@@ -68,10 +70,11 @@ class StubWatcher implements IWatchService {
   }
 }
 
-const noopLogger = {
+const noopLogger: ILogger = {
   info: vi.fn(),
   warn: vi.fn(),
-  error: vi.fn()
+  error: vi.fn(),
+  debug: vi.fn()
 };
 
 const baseConfig = (): IConfig => ({
@@ -107,8 +110,8 @@ describe('NamefixService', () => {
   });
 
   afterEach(async () => {
-    delete process.env.NAMEFIX_HOME;
-    delete process.env.NAMEFIX_LOGS;
+    process.env.NAMEFIX_HOME = undefined;
+    process.env.NAMEFIX_LOGS = undefined;
     await fs.rm(tempRoot, { recursive: true, force: true });
     vi.restoreAllMocks();
   });
@@ -116,7 +119,7 @@ describe('NamefixService', () => {
   function createService() {
     return new NamefixService({
       configStore,
-      logger: noopLogger as any,
+      logger: noopLogger,
       watcherFactory: (dir) => {
         const watcher = new StubWatcher();
         watchers.set(dir, watcher);
@@ -155,7 +158,13 @@ describe('NamefixService', () => {
     const baselineStatus = service.getStatus();
     const [firstDir] = Array.from(watchers.keys());
     expect(firstDir).toBeDefined();
-    const previousWatcher = watchers.get(firstDir!)!;
+    if (!firstDir) {
+      throw new Error('Expected watcher directory to be defined');
+    }
+    const previousWatcher = watchers.get(firstDir);
+    if (!previousWatcher) {
+      throw new Error('Expected watcher to exist');
+    }
 
     const newDir = await fs.mkdtemp(path.join(tempRoot, 'watch-c-'));
     const statusUpdates: ServiceStatus[] = [];
@@ -185,13 +194,19 @@ describe('NamefixService', () => {
 
     const dir = Array.from(watchers.keys())[0];
     expect(dir).toBeDefined();
-    const watcher = watchers.get(dir!)!;
+    if (!dir) {
+      throw new Error('Expected watcher directory to be defined');
+    }
+    const watcher = watchers.get(dir);
+    if (!watcher) {
+      throw new Error('Expected watcher to exist');
+    }
 
     const events: ServiceFileEvent[] = [];
     service.on('file', (event) => events.push(event));
 
     watcher.trigger({
-      path: path.join(dir!, 'Screenshot 2025-10-30 at 09.00.00.png'),
+      path: path.join(dir, 'Screenshot 2025-10-30 at 09.00.00.png'),
       birthtimeMs: Date.now(),
       mtimeMs: Date.now(),
       size: 10
@@ -199,7 +214,7 @@ describe('NamefixService', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 25));
     expect(events).toHaveLength(1);
-    expect(events[0]!.kind).toBe('preview');
+    expect(events.at(0)?.kind).toBe('preview');
   });
 
   it('stops watchers when service stops', async () => {

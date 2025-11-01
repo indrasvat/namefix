@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Entrypoint for namefix. Delegates to built CLI in dist.
 
-import { createRequire } from 'module';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 

@@ -309,8 +309,8 @@ export class NamefixService {
         await this.journal.record(ev.path, targetPath);
         this.emit('file', { kind: 'applied', directory, file: basename, target: targetBase, timestamp: Date.now() });
         this.eventBus.emit('file:renamed', { from: ev.path, to: targetPath });
-      } catch (e: any) {
-        const message = e?.message || 'rename failed';
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'rename failed';
         this.logger.error(e instanceof Error ? e : String(e));
         this.emit('file', { kind: 'error', directory, file: basename, timestamp: Date.now(), message });
         this.eventBus.emit('file:error', { path: ev.path, error: e });

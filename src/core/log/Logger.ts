@@ -34,7 +34,7 @@ export class Logger implements ILogger {
     const line = JSON.stringify(rec);
     this.pushRing(line);
     try {
-      if (this.stream) this.stream.write(line + '\n');
+      if (this.stream) this.stream.write(`${line}\n`);
     } catch {
       // ignore
     }
@@ -53,5 +53,7 @@ export class Logger implements ILogger {
   }
   debug(msg: string, meta?: Record<string, unknown>): void { this.write('debug', msg, meta); }
 
-  getRing(): string[] { return [...this.ring]; }
+  getRing(): string[] {
+    return [...this.ring];
+  }
 }

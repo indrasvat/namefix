@@ -1,6 +1,11 @@
 import path from 'node:path';
 
-function pad2(n: number): string { return n < 10 ? `0${n}` : String(n); }
+function pad2(n: number): string {
+  if (n < 10) {
+    return `0${n}`;
+  }
+  return String(n);
+}
 
 export function formatTimestamp(d: Date): string {
   const yyyy = d.getFullYear();
@@ -26,4 +31,3 @@ export function buildName(prefix: string, d: Date, ext: string): string {
 export function getExt(p: string): string {
   return path.extname(p) || '';
 }
-

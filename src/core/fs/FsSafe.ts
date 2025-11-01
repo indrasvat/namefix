@@ -28,8 +28,8 @@ export class FsSafe {
       try {
         await fs.rename(from, to);
         return;
-      } catch (err: any) {
-        if (err && err.code === 'EBUSY' && i < maxAttempts - 1) {
+      } catch (err) {
+        if (isBusyError(err) && i < maxAttempts - 1) {
           await delay(50 + Math.floor(Math.random() * 100));
           continue;
         }
@@ -39,5 +39,10 @@ export class FsSafe {
   }
 }
 
-function delay(ms: number) { return new Promise((res) => setTimeout(res, ms)); }
+function delay(ms: number) {
+  return new Promise((res) => setTimeout(res, ms));
+}
 
+function isBusyError(err: unknown): err is NodeJS.ErrnoException {
+  return typeof err === 'object' && err !== null && 'code' in err && (err as NodeJS.ErrnoException).code === 'EBUSY';
+}

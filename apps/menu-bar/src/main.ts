@@ -35,20 +35,20 @@ let currentStatus: ServiceStatus | null = null;
 let toastTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function activateTab(name: string) {
-  tabButtons.forEach((button) => {
+  for (const button of tabButtons) {
     button.classList.toggle('active', button.dataset.tabTarget === name);
-  });
-  tabViews.forEach((view) => {
+  }
+  for (const view of tabViews) {
     view.classList.toggle('active', view.dataset.tab === name);
-  });
+  }
 }
 
-tabButtons.forEach((button) => {
+for (const button of tabButtons) {
   button.addEventListener('click', () => {
     const target = button.dataset.tabTarget ?? 'overview';
     activateTab(target);
   });
-});
+}
 
 if (tabButtons.length && tabViews.length) {
   activateTab('overview');
@@ -89,7 +89,7 @@ function renderDirectories(status: ServiceStatus) {
     return;
   }
 
-  status.directories.forEach((directory) => {
+  for (const directory of status.directories) {
     const item = document.createElement('li');
     item.className = 'directory-item';
 
@@ -129,7 +129,7 @@ function renderDirectories(status: ServiceStatus) {
 
     item.append(text, removeButton);
     directoriesList.appendChild(item);
-  });
+  }
 }
 
 function renderStatus(status: ServiceStatus) {

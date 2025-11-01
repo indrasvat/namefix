@@ -1,7 +1,7 @@
 import chokidar from 'chokidar';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import { FsSafe } from './FsSafe.js';
+import type { FsSafe } from './FsSafe.js';
 import type { IWatchService, WatchEvent } from '../../types/index';
 
 export class WatchService implements IWatchService {

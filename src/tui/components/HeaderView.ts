@@ -17,17 +17,26 @@ export class HeaderView extends BaseView {
     screen.append(this.box);
   }
 
-  setTheme(theme: Theme) { this.theme = theme; this.render(); }
-  setDryRun(dry: boolean) { this.dryRun = dry; this.render(); }
+  setTheme(theme: Theme) {
+    this.theme = theme;
+    this.render();
+  }
+
+  setDryRun(dry: boolean) {
+    this.dryRun = dry;
+    this.render();
+  }
 
   private render() {
     if (!this.box) return;
     const mode = this.dryRun ? '{yellow-fg}[DRY-RUN]{/yellow-fg}' : '{green-fg}[LIVE]{/green-fg}';
     this.box.setContent(` namefix  ${mode}`);
-    this.box.style = { fg: this.theme?.fg || 'white', bg: this.theme?.bg || 'black' } as any;
+    const style: blessed.Widgets.BoxStyle = { fg: this.theme?.fg || 'white', bg: this.theme?.bg || 'black' };
+    this.box.style = style;
     this.screen.render();
   }
 
-  unmount(): void { this.box?.destroy(); }
+  unmount(): void {
+    this.box?.destroy();
+  }
 }
-

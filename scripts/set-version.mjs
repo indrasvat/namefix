@@ -46,7 +46,7 @@ function updateLock(filePath) {
   if (!fs.existsSync(absolute)) return;
   const lock = JSON.parse(fs.readFileSync(absolute, 'utf8'));
   lock.version = semver;
-  if (lock.packages && lock.packages['']) {
+  if (lock.packages?.['']) {
     lock.packages[''].version = semver;
   }
   fs.writeFileSync(absolute, `${JSON.stringify(lock, null, 2)}\n`);

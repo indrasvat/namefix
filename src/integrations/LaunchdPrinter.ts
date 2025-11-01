@@ -1,8 +1,10 @@
 import os from 'node:os';
 import path from 'node:path';
 
-export class LaunchdPrinter {
-  static printPlist(opts: { label?: string; binPath: string; watchDir: string; args?: string[] }) {
+export type LaunchdPlistOptions = { label?: string; binPath: string; watchDir: string; args?: string[] };
+
+export const LaunchdPrinter = {
+  printPlist(opts: LaunchdPlistOptions) {
     const label = opts.label || 'com.namefix.app';
     const program = opts.binPath;
     const runArgs = [program, '--watch', opts.watchDir, '--live', ...(opts.args || [])];
@@ -27,11 +29,10 @@ export class LaunchdPrinter {
 </dict>
 </plist>`;
     // Print to stdout
-    process.stdout.write(plist + '\n');
+    process.stdout.write(`${plist}\n`);
   }
-}
+};
 
 function escapeXml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
-

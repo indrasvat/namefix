@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { NamefixApp } from '../core/App.js';
+import { NamefixApp, type NamefixOverrides } from '../core/App.js';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -35,13 +35,13 @@ export async function run(argv: string[] = process.argv.slice(2)) {
     const { LaunchdPrinter } = await import('../integrations/LaunchdPrinter.js');
     const binPath: string = fileURLToPath(new URL('../../bin/namefix.js', import.meta.url));
     const home = os.homedir();
-    const watch: string = opts.watch ?? (home + '/Desktop');
+    const watch: string = opts.watch ?? `${home}/Desktop`;
     LaunchdPrinter.printPlist({ binPath, watchDir: watch });
     return;
   }
 
   const app = new NamefixApp();
-  const overrides: any = {};
+  const overrides: NamefixOverrides = {};
   if (opts.watch) overrides.watchDir = opts.watch;
   if (opts.dryRun) overrides.dryRun = true;
   if (opts.live) overrides.dryRun = false;

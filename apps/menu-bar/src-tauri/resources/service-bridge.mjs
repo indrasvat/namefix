@@ -37,9 +37,10 @@ await service.init();
 await service.start();
 
 const emitterUnsubs = [];
+const SHUTDOWN_DELAY_MS = 10; // allow stdout flush before exiting the sidecar
 
 function sendMessage(payload) {
-  stdout.write(JSON.stringify(payload) + '\n');
+  stdout.write(`${JSON.stringify(payload)}\n`);
 }
 
 function forwardEvents() {
@@ -116,12 +117,12 @@ const handlers = {
     }
     await service.stop();
     sendMessage({ event: 'shutdown', payload: {} });
-    setTimeout(() => exit(0), 10);
+    setTimeout(() => exit(0), SHUTDOWN_DELAY_MS);
     return true;
   }
 };
 
-const rl = createInterface({ input: stdin, crlfDelay: Infinity });
+const rl = createInterface({ input: stdin, crlfDelay: Number.POSITIVE_INFINITY });
 
 for await (const line of rl) {
   const trimmed = line.trim();

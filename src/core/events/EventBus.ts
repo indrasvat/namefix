@@ -25,6 +25,7 @@ export class EventBus {
     this.emitter.emit(event, payload);
   }
 
-  removeAll() { this.emitter.removeAllListeners(); }
+  removeAll() {
+    this.emitter.removeAllListeners();
+  }
 }
-

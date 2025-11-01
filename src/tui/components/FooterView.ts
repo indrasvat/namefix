@@ -14,6 +14,7 @@ export class FooterView extends BaseView {
     screen.append(this.box);
   }
 
-  unmount(): void { this.box?.destroy(); }
+  unmount(): void {
+    this.box?.destroy();
+  }
 }
-

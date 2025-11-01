@@ -10,10 +10,16 @@
       "recommended": true
     }
   },
+  "files": {
+    "ignore": [
+      "apps/menu-bar/dist/**",
+      "apps/menu-bar/src-tauri/target/**",
+      "dist/**"
+    ]
+  },
   "javascript": {
     "formatter": {
       "quoteStyle": "single"
     }
   }
 }
-

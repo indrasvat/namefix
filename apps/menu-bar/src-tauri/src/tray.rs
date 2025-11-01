@@ -231,6 +231,12 @@ fn tray_icon_image() -> tauri::Result<Image<'static>> {
         (dx * dx + dy * dy) <= doc_radius * doc_radius
     };
 
+    let folded_corner_threshold = doc_right + doc_top - doc_radius;
+    let in_folded_corner = |xf: f32, yf: f32| -> bool {
+        xf > doc_right - doc_radius && yf < doc_top + doc_radius && (xf + yf) > folded_corner_threshold
+    };
+
+    let diagonal_normalization = (1.5_f32).sqrt();
     for y in 0..SIZE {
         for x in 0..SIZE {
             let idx = ((y * SIZE + x) * 4) as usize;
@@ -263,7 +269,7 @@ fn tray_icon_image() -> tauri::Result<Image<'static>> {
                 alpha = 0.96;
 
                 // folded corner
-                if xf > doc_right - doc_radius && yf < doc_top + doc_radius && (xf + yf) > (doc_right + doc_top - doc_radius) {
+                if in_folded_corner(xf, yf) {
                     r = 255.0;
                     g = 249.0;
                     b = 200.0;
@@ -271,7 +277,8 @@ fn tray_icon_image() -> tauri::Result<Image<'static>> {
             }
 
             // diagonal rename arrow overlay
-            let diag = ((yf - (-1.05 * xf + (center * 2.0 - 2.0))) / (1.5_f32).sqrt()).abs();
+            let diagonal_line_y = -1.05 * xf + (center * 2.0 - 2.0);
+            let diag = ((yf - diagonal_line_y) / diagonal_normalization).abs();
             if diag < 1.1 && xf >= 10.0 && xf <= doc_right && yf >= doc_top + 2.0 && yf <= doc_bottom + 1.0 {
                 r = 82.0;
                 g = 223.0;
