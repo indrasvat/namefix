@@ -23,7 +23,7 @@ export class FsSafe {
 
   async atomicRename(from: string, to: string): Promise<void> {
     await fs.mkdir(path.dirname(to), { recursive: true });
-    const maxAttempts = 5;
+    const maxAttempts = 6;
     for (let i = 0; i < maxAttempts; i++) {
       try {
         await fs.rename(from, to);
@@ -31,6 +31,10 @@ export class FsSafe {
       } catch (err) {
         if (isBusyError(err) && i < maxAttempts - 1) {
           await delay(50 + Math.floor(Math.random() * 100));
+          continue;
+        }
+        if (isMissingError(err) && i < maxAttempts - 1) {
+          await delay(75 + Math.floor(Math.random() * 150));
           continue;
         }
         throw err;
@@ -45,4 +49,8 @@ function delay(ms: number) {
 
 function isBusyError(err: unknown): err is NodeJS.ErrnoException {
   return typeof err === 'object' && err !== null && 'code' in err && (err as NodeJS.ErrnoException).code === 'EBUSY';
+}
+
+function isMissingError(err: unknown): err is NodeJS.ErrnoException {
+  return typeof err === 'object' && err !== null && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT';
 }
