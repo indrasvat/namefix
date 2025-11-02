@@ -28,17 +28,32 @@ function logDebug(message, extra = {}) {
   stderr.write(`${new Date().toISOString()} service-bridge ${message} ${JSON.stringify(extra)}\n`);
 }
 
-const distModuleUrl = new URL('../../../../dist/core/NamefixService.js', import.meta.url);
-const distPath = fileURLToPath(distModuleUrl);
+const distCandidates = [
+  '../dist/core/NamefixService.js', // packaged bundle (Contents/Resources/dist)
+  '../../../../dist/core/NamefixService.js', // local development tree
+];
 
-try {
-  await access(distPath);
-} catch (err) {
-  stderr.write(`Namefix build artifacts not found at ${distPath}. Run \`npm run build\` before starting the menu bar app.\n`);
+let resolvedModuleUrl;
+let resolvedPath;
+for (const candidate of distCandidates) {
+  const candidateUrl = new URL(candidate, import.meta.url);
+  const candidatePath = fileURLToPath(candidateUrl);
+  try {
+    await access(candidatePath);
+    resolvedModuleUrl = candidateUrl;
+    resolvedPath = candidatePath;
+    break;
+  } catch {
+    // try the next candidate
+  }
+}
+
+if (!resolvedModuleUrl) {
+  stderr.write(`Namefix build artifacts not found. Checked: ${distCandidates.join(', ')}\n`);
   exit(1);
 }
 
-const { NamefixService } = await import(distModuleUrl);
+const { NamefixService } = await import(resolvedModuleUrl);
 const service = new NamefixService();
 
 await service.init();
