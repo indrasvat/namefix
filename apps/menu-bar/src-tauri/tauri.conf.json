@@ -29,7 +29,8 @@
   },
   "bundle": {
     "resources": [
-      "resources/service-bridge.mjs"
+      "resources/service-bridge.mjs",
+      "resources/dist"
     ]
   }
 }
