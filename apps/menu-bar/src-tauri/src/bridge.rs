@@ -142,9 +142,16 @@ impl NodeBridge {
 }
 
 fn resolve_bridge_script(app_handle: &AppHandle) -> anyhow::Result<PathBuf> {
-    if let Ok(path) = app_handle.path().resolve("service-bridge.mjs", BaseDirectory::Resource) {
-        if path.exists() {
-            return Ok(path);
+    let resource_candidates = [
+        "service-bridge.mjs",
+        "resources/service-bridge.mjs",
+    ];
+
+    for candidate in resource_candidates {
+        if let Ok(path) = app_handle.path().resolve(candidate, BaseDirectory::Resource) {
+            if path.exists() {
+                return Ok(path);
+            }
         }
     }
 
