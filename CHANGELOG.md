@@ -1,3 +1,10 @@
+## [0.2.4](https://github.com/indrasvat/namefix/compare/v0.2.3...v0.2.4) (2025-11-02)
+
+
+### Bug Fixes
+
+* **menu-bar:** bundle dist runtime assets ([e314efa](https://github.com/indrasvat/namefix/commit/e314efa2334d3806e9726cec4c672a18bb68a5e1))
+
 ## [0.2.3](https://github.com/indrasvat/namefix/compare/v0.2.2...v0.2.3) (2025-11-02)
 
 
