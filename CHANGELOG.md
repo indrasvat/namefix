@@ -1,3 +1,10 @@
+## [0.2.5](https://github.com/indrasvat/namefix/compare/v0.2.4...v0.2.5) (2025-11-02)
+
+
+### Bug Fixes
+
+* **menu-bar:** load packaged runtime and refresh icon ([922ac04](https://github.com/indrasvat/namefix/commit/922ac04286f2bc3be7d662c553409bdeded87394))
+
 ## [0.2.4](https://github.com/indrasvat/namefix/compare/v0.2.3...v0.2.4) (2025-11-02)
 
 
