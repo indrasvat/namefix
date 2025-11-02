@@ -31,6 +31,10 @@
     "resources": [
       "resources/service-bridge.mjs",
       "resources/dist"
+    ],
+    "icon": [
+      "icons/namefix.icns",
+      "icons/namefix-icon-1024.png"
     ]
   }
 }

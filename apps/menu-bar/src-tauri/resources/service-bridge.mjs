@@ -29,7 +29,8 @@ function logDebug(message, extra = {}) {
 }
 
 const distCandidates = [
-  '../dist/core/NamefixService.js', // packaged bundle (Contents/Resources/dist)
+  './dist/core/NamefixService.js', // packaged bundle (Contents/Resources/resources/dist)
+  '../dist/core/NamefixService.js', // packaged bundle (alternative layout)
   '../../../../dist/core/NamefixService.js', // local development tree
 ];
 
