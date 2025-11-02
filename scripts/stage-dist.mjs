@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 
-import { cp, rm } from 'node:fs/promises';
+import { cp, rm, symlink, mkdir } from 'node:fs/promises';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 
 const args = process.argv.slice(2);
-if (args.length === 0) {
+const persist = args.includes('--persist');
+const filteredArgs = args.filter((arg) => arg !== '--persist');
+
+if (filteredArgs.length === 0) {
   console.error('Usage: node scripts/stage-dist.mjs <command> [..args]');
   process.exit(1);
 }
@@ -23,8 +26,14 @@ if (!fs.existsSync(distSource)) {
 
 async function stageDist() {
   await rm(stagedDist, { recursive: true, force: true });
-  await cp(distSource, stagedDist, { recursive: true });
-  console.log(`Staged dist → ${stagedDist}`);
+  if (persist) {
+    await mkdir(path.dirname(stagedDist), { recursive: true });
+    await symlink(distSource, stagedDist, 'dir');
+    console.log(`Linked dist → ${stagedDist}`);
+  } else {
+    await cp(distSource, stagedDist, { recursive: true });
+    console.log(`Staged dist → ${stagedDist}`);
+  }
   const sample = fs.readdirSync(stagedDist, { withFileTypes: true })
     .slice(0, 5)
     .map((entry) => `${entry.isDirectory() ? '[dir]' : '[file]'} ${entry.name}`);
@@ -40,7 +49,7 @@ async function run() {
   await stageDist();
   try {
     await new Promise((resolve, reject) => {
-      const child = spawn(args[0], args.slice(1), {
+      const child = spawn(filteredArgs[0], filteredArgs.slice(1), {
         cwd: path.join(repoRoot, 'apps', 'menu-bar'),
         stdio: 'inherit',
         shell: process.platform === 'win32',
@@ -52,7 +61,9 @@ async function run() {
       child.on('error', reject);
     });
   } finally {
-    await cleanupDist();
+    if (!persist) {
+      await cleanupDist();
+    }
   }
 }
 
