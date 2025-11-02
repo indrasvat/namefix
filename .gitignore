@@ -31,3 +31,4 @@ coverage/
 dist/
 build/
 artifacts/
+apps/menu-bar/src-tauri/resources/dist

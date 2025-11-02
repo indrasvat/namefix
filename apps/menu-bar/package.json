@@ -7,7 +7,7 @@
     "dev": "npm --prefix ../.. run build && vite",
     "build": "npm --prefix ../.. run build && vite build",
     "preview": "vite preview",
-    "tauri:dev": "npm --prefix ../.. run build && tauri dev",
+    "tauri:dev": "npm --prefix ../.. run build && node ../../scripts/stage-dist.mjs --persist tauri dev",
     "tauri:build": "npm --prefix ../.. run build && node ../../scripts/stage-dist.mjs tauri build --bundles app,dmg"
   },
   "dependencies": {
