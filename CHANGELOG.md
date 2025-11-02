@@ -1,3 +1,10 @@
+## [0.2.3](https://github.com/indrasvat/namefix/compare/v0.2.2...v0.2.3) (2025-11-02)
+
+
+### Bug Fixes
+
+* **menu-bar:** locate packaged service bridge ([e894b97](https://github.com/indrasvat/namefix/commit/e894b97e1efa650604debba187d9a7e09df2aff7))
+
 ## [0.2.2](https://github.com/indrasvat/namefix/compare/v0.2.1...v0.2.2) (2025-11-01)
 
 
