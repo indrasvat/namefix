@@ -30,7 +30,8 @@
   "bundle": {
     "resources": [
       "resources/service-bridge.mjs",
-      "resources/dist"
+      "resources/dist",
+      "resources/node_modules"
     ],
     "icon": [
       "icons/namefix.icns",
