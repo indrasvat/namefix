@@ -1,3 +1,10 @@
+## [0.2.6](https://github.com/indrasvat/namefix/compare/v0.2.5...v0.2.6) (2025-11-03)
+
+
+### Bug Fixes
+
+* **menu-bar:** ship runtime deps with app ([71e0d58](https://github.com/indrasvat/namefix/commit/71e0d58df7323242c99302b72e29362783c11dff))
+
 ## [0.2.5](https://github.com/indrasvat/namefix/compare/v0.2.4...v0.2.5) (2025-11-02)
 
 
