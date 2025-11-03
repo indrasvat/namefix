@@ -32,3 +32,4 @@ dist/
 build/
 artifacts/
 apps/menu-bar/src-tauri/resources/dist
+apps/menu-bar/src-tauri/resources/node_modules

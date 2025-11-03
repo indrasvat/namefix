@@ -17,21 +17,33 @@ if (filteredArgs.length === 0) {
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
 const distSource = path.join(repoRoot, 'dist');
-const stagedDist = path.join(repoRoot, 'apps', 'menu-bar', 'src-tauri', 'resources', 'dist');
+const nodeModulesSource = path.join(repoRoot, 'node_modules');
+const resourcesRoot = path.join(repoRoot, 'apps', 'menu-bar', 'src-tauri', 'resources');
+const stagedDist = path.join(resourcesRoot, 'dist');
+const stagedModules = path.join(resourcesRoot, 'node_modules');
 
 if (!fs.existsSync(distSource)) {
   console.error(`Source dist directory not found at ${distSource}. Run \`npm run build\` first.`);
   process.exit(1);
 }
 
+if (!fs.existsSync(nodeModulesSource)) {
+  console.error(`node_modules not found at ${nodeModulesSource}. Did you run \`npm ci\`?`);
+  process.exit(1);
+}
+
 async function stageDist() {
   await rm(stagedDist, { recursive: true, force: true });
   if (persist) {
-    await mkdir(path.dirname(stagedDist), { recursive: true });
+    await mkdir(resourcesRoot, { recursive: true });
     await symlink(distSource, stagedDist, 'dir');
+    await rm(stagedModules, { recursive: true, force: true });
+    await symlink(nodeModulesSource, stagedModules, 'dir');
     console.log(`Linked dist → ${stagedDist}`);
   } else {
     await cp(distSource, stagedDist, { recursive: true });
+    await rm(stagedModules, { recursive: true, force: true });
+    await cp(nodeModulesSource, stagedModules, { recursive: true });
     console.log(`Staged dist → ${stagedDist}`);
   }
   const sample = fs.readdirSync(stagedDist, { withFileTypes: true })
@@ -42,6 +54,7 @@ async function stageDist() {
 
 async function cleanupDist() {
   await rm(stagedDist, { recursive: true, force: true });
+  await rm(stagedModules, { recursive: true, force: true });
   console.log(`Cleaned staged dist from ${stagedDist}`);
 }
 
