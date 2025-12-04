@@ -1,52 +1,55 @@
 // Shared types and interfaces (Task 2)
 
 export interface IDispose {
-  dispose(): void | Promise<void>;
+	dispose(): void | Promise<void>;
 }
 
 export type WatchEvent = {
-  path: string;
-  birthtimeMs: number;
-  mtimeMs: number;
-  size: number;
+	path: string;
+	birthtimeMs: number;
+	mtimeMs: number;
+	size: number;
 };
 
 export interface IConfig {
-  watchDir: string;
-  watchDirs: string[];
-  prefix: string;
-  include: string[];
-  exclude: string[];
-  dryRun: boolean;
-  theme: string;
-  launchOnLogin: boolean;
+	watchDir: string;
+	watchDirs: string[];
+	prefix: string;
+	include: string[];
+	exclude: string[];
+	dryRun: boolean;
+	theme: string;
+	launchOnLogin: boolean;
 }
 
 export interface IConfigStore {
-  get(): Promise<IConfig>;
-  set(next: Partial<IConfig>): Promise<IConfig>;
-  onChange(cb: (config: IConfig) => void): () => void;
+	get(): Promise<IConfig>;
+	set(next: Partial<IConfig>): Promise<IConfig>;
+	onChange(cb: (config: IConfig) => void): () => void;
 }
 
 export interface ILogger {
-  info(msg: string, meta?: Record<string, unknown>): void;
-  warn(msg: string, meta?: Record<string, unknown>): void;
-  error(msg: string | Error, meta?: Record<string, unknown>): void;
-  debug?(msg: string, meta?: Record<string, unknown>): void;
+	info(msg: string, meta?: Record<string, unknown>): void;
+	warn(msg: string, meta?: Record<string, unknown>): void;
+	error(msg: string | Error, meta?: Record<string, unknown>): void;
+	debug?(msg: string, meta?: Record<string, unknown>): void;
 }
 
 export interface IJournalStore extends IDispose {
-  record(from: string, to: string): Promise<void>;
-  undo(): Promise<{ ok: boolean; reason?: string }>;
+	record(from: string, to: string): Promise<void>;
+	undo(): Promise<{ ok: boolean; reason?: string }>;
 }
 
 export interface IRenameService {
-  needsRename(filename: string, prefix: string): boolean;
-  targetFor(srcPath: string, stat: { birthtime: Date; ext?: string; prefix?: string }): Promise<string> | string;
-  release(dir: string, target: string): void;
+	needsRename(filename: string, prefix: string): boolean;
+	targetFor(
+		srcPath: string,
+		stat: { birthtime: Date; ext?: string; prefix?: string },
+	): Promise<string> | string;
+	release(dir: string, target: string): void;
 }
 
 export interface IWatchService extends IDispose {
-  start(onAdd: (event: WatchEvent) => void): Promise<void>;
-  stop?(): Promise<void> | void;
+	start(onAdd: (event: WatchEvent) => void): Promise<void>;
+	stop?(): Promise<void> | void;
 }

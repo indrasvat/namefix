@@ -1,73 +1,64 @@
 {
-  "name": "namefix",
-  "version": "0.2.5",
-  "description": "A minimal, fast, idiot‑proof macOS screenshot renamer (TUI)",
-  "license": "MIT",
-  "type": "module",
-  "bin": {
-    "namefix": "bin/namefix.js"
-  },
-  "main": "dist/index.js",
-  "files": [
-    "dist",
-    "bin"
-  ],
-  "engines": {
-    "node": ">=20 <23",
-    "pnpm": ">=9"
-  },
-  "volta": {
-    "node": "22.14.0",
-    "pnpm": "9.0.0"
-  },
-  "packageManager": "pnpm@9.0.0",
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "start": "node bin/namefix.js",
-    "biome": "biome check --apply . || true",
-    "format": "biome format --write . || true",
-    "lint": "biome lint . || true",
-    "prepare": "command -v husky >/dev/null 2>&1 && husky install || true",
-    "test": "vitest run || echo 'tests pending'",
-    "menubar": "npm --prefix apps/menu-bar run tauri:dev",
-    "tauri:dev": "npm --prefix apps/menu-bar run tauri:dev",
-    "tauri:build": "npm --prefix apps/menu-bar run tauri:build",
-    "release": "semantic-release"
-  },
-  "keywords": [
-    "macos",
-    "screenshot",
-    "rename",
-    "tui",
-    "blessed"
-  ],
-  "author": "",
-  "repository": {
-    "type": "git",
-    "url": ""
-  },
-  "homepage": "",
-  "devDependencies": {
-    "@biomejs/biome": "^1.9.0",
-    "@types/blessed": "^0.1.25",
-    "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/commit-analyzer": "^13.0.1",
-    "@semantic-release/exec": "^7.1.0",
-    "@semantic-release/git": "^10.0.1",
-    "@semantic-release/github": "^12.0.1",
-    "@semantic-release/release-notes-generator": "^14.1.0",
-    "@types/node": "^20.12.12",
-    "@types/picomatch": "^4.0.2",
-    "semantic-release": "^25.0.1",
-    "typescript": "^5.5.0",
-    "vitest": "^2.0.0"
-  },
-  "dependencies": {
-    "blessed": "^0.1.81",
-    "chokidar": "^3.6.0",
-    "colorette": "^2.0.20",
-    "commander": "^12.1.0",
-    "picomatch": "^4.0.2"
-  }
+	"name": "namefix",
+	"version": "0.2.5",
+	"description": "A minimal, fast, idiot‑proof macOS screenshot renamer (TUI)",
+	"license": "MIT",
+	"type": "module",
+	"bin": {
+		"namefix": "bin/namefix.js"
+	},
+	"main": "dist/index.js",
+	"files": ["dist", "bin"],
+	"engines": {
+		"node": ">=20 <23",
+		"pnpm": ">=9"
+	},
+	"volta": {
+		"node": "22.14.0",
+		"pnpm": "9.0.0"
+	},
+	"packageManager": "pnpm@9.0.0",
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"typecheck": "tsc -p tsconfig.json --noEmit",
+		"start": "node bin/namefix.js",
+		"biome": "biome check --apply . || true",
+		"format": "biome format --write . || true",
+		"lint": "biome lint . || true",
+		"prepare": "command -v husky >/dev/null 2>&1 && husky install || true",
+		"test": "vitest run || echo 'tests pending'",
+		"menubar": "npm --prefix apps/menu-bar run tauri:dev",
+		"tauri:dev": "npm --prefix apps/menu-bar run tauri:dev",
+		"tauri:build": "npm --prefix apps/menu-bar run tauri:build",
+		"release": "semantic-release"
+	},
+	"keywords": ["macos", "screenshot", "rename", "tui", "blessed"],
+	"author": "",
+	"repository": {
+		"type": "git",
+		"url": ""
+	},
+	"homepage": "",
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.0",
+		"@types/blessed": "^0.1.25",
+		"@semantic-release/changelog": "^6.0.3",
+		"@semantic-release/commit-analyzer": "^13.0.1",
+		"@semantic-release/exec": "^7.1.0",
+		"@semantic-release/git": "^10.0.1",
+		"@semantic-release/github": "^12.0.1",
+		"@semantic-release/release-notes-generator": "^14.1.0",
+		"@types/node": "^20.12.12",
+		"@types/picomatch": "^4.0.2",
+		"semantic-release": "^25.0.1",
+		"typescript": "^5.5.0",
+		"vitest": "^2.0.0"
+	},
+	"dependencies": {
+		"blessed": "^0.1.81",
+		"chokidar": "^3.6.0",
+		"colorette": "^2.0.20",
+		"commander": "^12.1.0",
+		"picomatch": "^4.0.2"
+	}
 }
