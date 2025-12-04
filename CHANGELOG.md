@@ -1,3 +1,10 @@
+## [0.2.7](https://github.com/indrasvat/namefix/compare/v0.2.6...v0.2.7) (2025-12-04)
+
+
+### Bug Fixes
+
+* **menu-bar:** improve node runtime detection and update docs ([7c3d95b](https://github.com/indrasvat/namefix/commit/7c3d95b4410c19ae1264679120c5cb236410c174))
+
 ## [0.2.6](https://github.com/indrasvat/namefix/compare/v0.2.5...v0.2.6) (2025-11-03)
 
 
