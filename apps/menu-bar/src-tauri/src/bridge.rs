@@ -164,10 +164,33 @@ fn resolve_bridge_script(app_handle: &AppHandle) -> anyhow::Result<PathBuf> {
 }
 
 fn node_command() -> anyhow::Result<String> {
-    std::env::var("NAMEFIX_NODE")
-        .ok()
-        .or_else(|| which::which("node").ok().map(|p| p.to_string_lossy().to_string()))
-        .ok_or_else(|| anyhow::anyhow!("Node.js binary not found. Ensure Node is installed or set NAMEFIX_NODE."))
+    if let Ok(path) = std::env::var("NAMEFIX_NODE") {
+        return Ok(path);
+    }
+
+    if let Ok(path) = which::which("node") {
+        return Ok(path.to_string_lossy().to_string());
+    }
+
+    // Fallback: check common locations that might not be in the GUI app's PATH
+    let mut candidates = vec![
+        PathBuf::from("/usr/local/bin/node"),
+        PathBuf::from("/opt/homebrew/bin/node"),
+        PathBuf::from("/usr/bin/node"),
+    ];
+
+    // Check user-specific paths (e.g. Volta)
+    if let Ok(home) = std::env::var("HOME") {
+        candidates.push(PathBuf::from(home).join(".volta/bin/node"));
+    }
+
+    for path in candidates {
+        if path.exists() {
+            return Ok(path.to_string_lossy().to_string());
+        }
+    }
+
+    Err(anyhow::anyhow!("Node.js binary not found. Ensure Node is installed or set NAMEFIX_NODE."))
 }
 
 pub type BridgeState = NodeBridge;

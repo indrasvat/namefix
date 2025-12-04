@@ -163,7 +163,11 @@ GITHUB_TOKEN=<token> npm run release
 
 ## Known limitations
 
-- Menu bar bundles are currently unsigned; users must right-click → “Open” the first time. Add signing creds in CI for notarised builds.
+- **Unsigned Builds:** The menu bar app is currently unsigned. On first launch, macOS may report the app as "damaged". Run the following command to clear the quarantine attribute:
+  ```bash
+  xattr -cr "/Applications/Namefix Menu Bar.app"
+  ```
+  Then launch the app as normal.
 
 ---
 
