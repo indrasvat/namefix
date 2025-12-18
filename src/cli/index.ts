@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { explanation } from './explain.js';
 
 export async function run(argv: string[] = process.argv.slice(2)) {
 	const program = new Command();
@@ -20,6 +21,14 @@ export async function run(argv: string[] = process.argv.slice(2)) {
 		.option('--print-launchd', 'Print launchd plist to stdout and exit')
 		.option('--version', 'Print version')
 		.allowUnknownOption(false);
+
+	program
+		.command('explain')
+		.description('Explain how the file renaming algorithm works.')
+		.action(() => {
+			console.log(explanation);
+			process.exit(0);
+		});
 
 	program.parse(argv, { from: 'user' });
 	const opts = program.opts();
