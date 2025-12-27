@@ -1,8 +1,9 @@
 import fs from 'node:fs/promises';
 import fscb from 'node:fs';
 import path from 'node:path';
-import type { IConfig, IConfigStore } from '../../types/index';
+import type { IConfig, IConfigStore, IProfile } from '../../types/index';
 import { configDir } from '../../utils/paths.js';
+import { DEFAULT_PROFILES, DEFAULT_TEMPLATE, generateProfileId } from '../rename/NameTemplate.js';
 
 const DEFAULT_WATCH_DIR = process.env.HOME ? path.join(process.env.HOME, 'Desktop') : '';
 
@@ -15,10 +16,80 @@ const DEFAULT_CONFIG: IConfig = {
 	dryRun: true,
 	theme: 'default',
 	launchOnLogin: false,
+	profiles: [...DEFAULT_PROFILES],
 };
 
 function isStringArray(v: unknown): v is string[] {
 	return Array.isArray(v) && v.every((x) => typeof x === 'string');
+}
+
+function isValidProfile(p: unknown): p is IProfile {
+	if (typeof p !== 'object' || p === null) return false;
+	const obj = p as Record<string, unknown>;
+	return (
+		typeof obj.id === 'string' &&
+		typeof obj.name === 'string' &&
+		typeof obj.enabled === 'boolean' &&
+		typeof obj.pattern === 'string' &&
+		typeof obj.template === 'string' &&
+		typeof obj.prefix === 'string' &&
+		typeof obj.priority === 'number'
+	);
+}
+
+function isProfileArray(v: unknown): v is IProfile[] {
+	return Array.isArray(v) && v.every(isValidProfile);
+}
+
+/**
+ * Migrate legacy config (prefix/include/exclude) to profiles array.
+ * Only runs if profiles array is empty or missing.
+ */
+function migrateToProfiles(input: Partial<IConfig>): IProfile[] {
+	// If profiles already exist and are valid, use them
+	if (isProfileArray(input.profiles) && input.profiles.length > 0) {
+		return input.profiles;
+	}
+
+	// Check if we have legacy config to migrate
+	const hasLegacyConfig =
+		(typeof input.prefix === 'string' && input.prefix.length > 0) ||
+		(isStringArray(input.include) && input.include.length > 0);
+
+	if (!hasLegacyConfig) {
+		// No legacy config, use defaults
+		return [...DEFAULT_PROFILES];
+	}
+
+	// Migrate legacy config to a single profile
+	const prefix = typeof input.prefix === 'string' ? input.prefix : 'Screenshot';
+	const include = isStringArray(input.include) ? input.include : ['Screenshot*'];
+
+	// Create a profile for each include pattern
+	const profiles: IProfile[] = include.map((pattern, index) => ({
+		id: generateProfileId(),
+		name: `Migrated: ${pattern}`,
+		enabled: true,
+		pattern,
+		isRegex: false,
+		template: DEFAULT_TEMPLATE,
+		prefix,
+		priority: index + 1,
+	}));
+
+	// Add default profiles that don't conflict
+	for (const defaultProfile of DEFAULT_PROFILES) {
+		const patternExists = profiles.some((p) => p.pattern === defaultProfile.pattern);
+		if (!patternExists) {
+			profiles.push({
+				...defaultProfile,
+				id: defaultProfile.id,
+				priority: profiles.length + 1,
+			});
+		}
+	}
+
+	return profiles;
 }
 
 function validateConfig(input: Partial<IConfig>): IConfig {
@@ -44,6 +115,10 @@ function validateConfig(input: Partial<IConfig>): IConfig {
 	if (typeof cfg.dryRun !== 'boolean') cfg.dryRun = DEFAULT_CONFIG.dryRun;
 	if (typeof cfg.theme !== 'string' || cfg.theme.length === 0) cfg.theme = DEFAULT_CONFIG.theme;
 	if (typeof cfg.launchOnLogin !== 'boolean') cfg.launchOnLogin = DEFAULT_CONFIG.launchOnLogin;
+
+	// Handle profiles migration and validation
+	cfg.profiles = migrateToProfiles(input);
+
 	return cfg;
 }
 

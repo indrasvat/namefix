@@ -140,6 +140,51 @@ const handlers = {
 	async undo() {
 		return service.undoLast();
 	},
+
+	// Profile management
+	async getProfiles() {
+		return service.getProfiles();
+	},
+	async getProfile(params = {}) {
+		const { id } = params;
+		if (typeof id !== 'string') {
+			throw new Error('profile id is required');
+		}
+		return service.getProfile(id) ?? null;
+	},
+	async setProfile(params = {}) {
+		const { profile } = params;
+		if (!profile || typeof profile !== 'object') {
+			throw new Error('profile is required');
+		}
+		await service.setProfile(profile);
+		return service.getProfiles();
+	},
+	async deleteProfile(params = {}) {
+		const { id } = params;
+		if (typeof id !== 'string') {
+			throw new Error('profile id is required');
+		}
+		await service.deleteProfile(id);
+		return service.getProfiles();
+	},
+	async toggleProfile(params = {}) {
+		const { id, enabled } = params;
+		if (typeof id !== 'string') {
+			throw new Error('profile id is required');
+		}
+		await service.toggleProfile(id, enabled);
+		return service.getProfiles();
+	},
+	async reorderProfiles(params = {}) {
+		const { orderedIds } = params;
+		if (!Array.isArray(orderedIds)) {
+			throw new Error('orderedIds is required');
+		}
+		await service.reorderProfiles(orderedIds);
+		return service.getProfiles();
+	},
+
 	async shutdown() {
 		for (const off of emitterUnsubs.splice(0)) {
 			try {

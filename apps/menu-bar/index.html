@@ -8,6 +8,7 @@
       :root {
         color-scheme: dark light;
         font-family: 'SF Pro Display', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        --font-mono: 'SF Mono', 'Fira Code', monospace;
         --bg: radial-gradient(140% 140% at 0% 0%, #1b2133 0%, #0a0f1f 45%, #04060c 100%);
         --bg-light: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
         --card-bg: rgba(17, 24, 39, 0.82);
@@ -41,54 +42,47 @@
       html,
       body {
         height: 100%;
+        margin: 0;
       }
 
       body {
-        margin: 0;
         display: flex;
         align-items: flex-start;
         justify-content: center;
-        padding: 12px 8px 18px;
+        padding: 16px;
         background: var(--bg);
         color: var(--text-primary);
         overflow: hidden;
       }
 
       main.shell {
-        width: clamp(520px, 62vw, 580px);
-        height: min(568px, calc(100vh - 24px));
-        padding: 12px 16px 18px;
+        width: 100%;
+        max-width: 440px;
         display: flex;
         flex-direction: column;
-        gap: 10px;
-        border-radius: 18px;
-        border: 1px solid rgba(94, 109, 136, 0.18);
-        background: rgba(8, 12, 24, 0.35);
-        box-shadow: 0 18px 40px rgba(7, 12, 25, 0.38);
-        backdrop-filter: blur(20px);
+        gap: 14px;
       }
 
       .tab-strip {
         display: flex;
-        gap: 6px;
+        gap: 4px;
         background: rgba(21, 27, 45, 0.65);
-        border-radius: 12px;
-        padding: 4px;
+        border-radius: 10px;
+        padding: 3px;
         border: 1px solid rgba(94, 109, 136, 0.2);
-        box-shadow: 0 5px 16px rgba(5, 10, 24, 0.3);
       }
 
       .tab-button {
         flex: 1;
-        padding: 0.55rem 0.3rem;
+        padding: 8px 12px;
         border: none;
-        border-radius: 12px;
+        border-radius: 8px;
         background: transparent;
         color: var(--text-secondary);
+        font-size: 0.85rem;
         font-weight: 600;
-        letter-spacing: 0.02em;
         cursor: pointer;
-        transition: all 160ms ease;
+        transition: all 150ms ease;
       }
 
       .tab-button:hover {
@@ -98,18 +92,13 @@
       .tab-button.active {
         background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
         color: #ffffff;
-        box-shadow: 0 10px 24px rgba(14, 165, 233, 0.32);
+        box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
       }
 
       .view {
         display: none;
         flex-direction: column;
-        gap: 12px;
-        flex: 1 1 0;
-        min-height: 0;
-        overflow-y: auto;
-        padding-right: 4px;
-        scroll-padding-bottom: 12px;
+        gap: 14px;
       }
 
       .view.active {
@@ -119,172 +108,141 @@
       .card {
         background: var(--card-bg);
         border: 1px solid var(--card-border);
-        border-radius: 16px;
-        padding: 14px 16px;
+        border-radius: 14px;
+        padding: 16px;
         box-shadow: var(--card-shadow);
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
         backdrop-filter: blur(16px);
       }
 
-      .hero__header {
+      /* Hero Section */
+      .hero {
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 14px;
       }
 
-      .hero__eyebrow {
-        font-size: 0.72rem;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: var(--text-subtle);
-      }
-
-      h1 {
-        margin: 0;
-        font-size: clamp(1.32rem, 2.3vw, 1.62rem);
-      }
-
-      .hero__subtitle {
-        margin: 0;
-        color: var(--text-secondary);
-        font-size: 0.85rem;
-      }
-
-      .metrics {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 6px;
-      }
-
-      .metric {
-        padding: 8px 10px;
-        border-radius: 11px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(94, 109, 136, 0.18);
+      .hero-header {
         display: flex;
-        flex-direction: column;
-        gap: 2px;
+        align-items: center;
+        gap: 14px;
       }
 
-      .metric__label {
-        font-size: 0.72rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--text-subtle);
-      }
-
-      .metric__value {
-        font-size: 1.05rem;
-        font-weight: 600;
-      }
-
-      .metric__value[data-state='active'] {
-        color: var(--success);
-      }
-
-      .metric__value[data-state='warn'] {
-        color: var(--warn);
-      }
-
-      .metric__value[data-state='muted'] {
-        color: var(--text-secondary);
-      }
-
-      .metric__value[data-state='accent'] {
-        color: var(--accent);
-      }
-
-      h2 {
-        margin: 0;
-        font-size: 1rem;
-      }
-
-      button {
-        font-family: inherit;
-        font-size: 0.92rem;
-        border: none;
-        border-radius: 11px;
-        padding: 0.6rem 0.95rem;
-        cursor: pointer;
-        transition: transform 120ms ease, box-shadow 120ms ease, background 150ms ease, border-color 150ms ease;
-        display: inline-flex;
+      .status-indicator {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: flex;
         align-items: center;
         justify-content: center;
-        gap: 0.35rem;
+        font-size: 1.5rem;
+        flex-shrink: 0;
       }
 
-      button:focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 3px;
+      .status-indicator[data-state="active"] {
+        background: linear-gradient(135deg, rgba(52, 211, 153, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%);
+        border: 1px solid rgba(52, 211, 153, 0.3);
       }
 
-      button:disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
+      .status-indicator[data-state="paused"] {
+        background: linear-gradient(135deg, rgba(148, 163, 184, 0.15) 0%, rgba(100, 116, 139, 0.15) 100%);
+        border: 1px solid rgba(148, 163, 184, 0.2);
       }
 
-      .button-primary {
-        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
-        color: #ffffff;
-        box-shadow: 0 12px 24px rgba(14, 165, 233, 0.28);
+      .hero-text {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .hero-title {
+        margin: 0;
+        font-size: 1.1rem;
         font-weight: 600;
       }
 
-      .button-primary:hover:not(:disabled) {
-        transform: translateY(-1px);
-        box-shadow: 0 14px 30px rgba(14, 165, 233, 0.34);
-      }
-
-      .button-secondary {
-        background: rgba(148, 163, 184, 0.16);
-        color: var(--text-primary);
-        border: 1px solid rgba(148, 163, 184, 0.22);
-      }
-
-      .button-secondary:hover:not(:disabled) {
-        background: rgba(148, 163, 184, 0.24);
-      }
-
-      .button-ghost {
-        background: transparent;
+      .hero-subtitle {
+        margin: 4px 0 0;
+        font-size: 0.85rem;
         color: var(--text-secondary);
-        border: 1px solid rgba(148, 163, 184, 0.22);
-        padding: 0.45rem 0.8rem;
       }
 
-      .button-ghost:hover:not(:disabled) {
-        border-color: rgba(148, 163, 184, 0.35);
-        color: var(--text-primary);
-      }
-
-      .primary-action {
+      .status-badges {
         display: flex;
-        justify-content: flex-start;
-      }
-
-      .control-actions {
-        display: flex;
-        gap: 10px;
+        gap: 8px;
         flex-wrap: wrap;
       }
 
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(94, 109, 136, 0.18);
+      }
+
+      .badge-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--text-subtle);
+      }
+
+      .badge[data-state="active"] .badge-dot {
+        background: var(--success);
+      }
+
+      .badge[data-state="warn"] .badge-dot {
+        background: var(--warn);
+      }
+
+      .badge[data-state="accent"] .badge-dot {
+        background: var(--accent);
+      }
+
+      /* Controls Section */
+      .controls {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .control-row {
+        display: flex;
+        gap: 10px;
+      }
+
+      .control-row .button-primary {
+        flex: 1;
+      }
+
       .switches {
-        display: grid;
-        gap: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 10px;
+        overflow: hidden;
       }
 
       .switch {
-        display: grid;
-        grid-template-columns: auto 1fr;
-        column-gap: 12px;
+        display: flex;
         align-items: center;
-        padding: 8px 12px;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(94, 109, 136, 0.18);
+        gap: 12px;
+        padding: 12px 14px;
         position: relative;
+        cursor: pointer;
+        transition: background 150ms ease;
+      }
+
+      .switch:hover {
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .switch + .switch {
+        border-top: 1px solid rgba(94, 109, 136, 0.12);
       }
 
       .switch input {
@@ -295,14 +253,15 @@
       }
 
       .switch__track {
-        width: 46px;
-        height: 24px;
-        border-radius: 999px;
-        background: rgba(148, 163, 184, 0.3);
-        display: inline-flex;
+        width: 40px;
+        height: 22px;
+        border-radius: 11px;
+        background: rgba(148, 163, 184, 0.25);
+        display: flex;
         align-items: center;
-        padding: 3px;
-        transition: background 160ms ease;
+        padding: 2px;
+        transition: background 150ms ease;
+        flex-shrink: 0;
       }
 
       .switch__thumb {
@@ -311,7 +270,8 @@
         border-radius: 50%;
         background: #ffffff;
         transform: translateX(0);
-        transition: transform 160ms ease, background 160ms ease;
+        transition: transform 150ms ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
       }
 
       .switch input:checked + .switch__track {
@@ -319,144 +279,187 @@
       }
 
       .switch input:checked + .switch__track .switch__thumb {
-        transform: translateX(22px);
-        background: #0f172a;
+        transform: translateX(18px);
+      }
+
+      .switch__content {
+        flex: 1;
+        min-width: 0;
       }
 
       .switch__label {
-        font-size: 0.92rem;
-        color: var(--text-secondary);
+        font-size: 0.9rem;
+        color: var(--text-primary);
       }
 
-      .status-card header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+      .switch__description {
+        font-size: 0.75rem;
+        color: var(--text-subtle);
+        margin-top: 2px;
       }
 
-      .overview-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-      }
-
-      .status-output {
-        margin: 0;
-        padding: 0.7rem;
+      /* Buttons */
+      button {
+        font-family: inherit;
+        font-size: 0.88rem;
+        border: none;
         border-radius: 10px;
-        background: rgba(15, 23, 42, 0.58);
-        border: 1px solid rgba(94, 109, 136, 0.2);
-        font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-        font-size: 0.8rem;
-        color: var(--text-secondary);
-        max-height: 150px;
-        overflow: auto;
-      }
-
-      .directories-card {
-        gap: 14px;
-      }
-
-      .directories-card header {
-        display: flex;
-        flex-direction: column;
+        padding: 10px 16px;
+        cursor: pointer;
+        transition: all 150ms ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         gap: 6px;
       }
 
-      .card__subtitle {
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .button-primary {
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+        color: #ffffff;
+        font-weight: 600;
+        box-shadow: 0 4px 14px rgba(14, 165, 233, 0.25);
+      }
+
+      .button-primary:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(14, 165, 233, 0.35);
+      }
+
+      .button-secondary {
+        background: rgba(148, 163, 184, 0.12);
+        color: var(--text-primary);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+      }
+
+      .button-secondary:hover:not(:disabled) {
+        background: rgba(148, 163, 184, 0.2);
+      }
+
+      .button-ghost {
+        background: transparent;
+        color: var(--text-secondary);
+        padding: 8px 12px;
+        font-size: 0.82rem;
+      }
+
+      .button-ghost:hover:not(:disabled) {
+        color: var(--text-primary);
+        background: rgba(148, 163, 184, 0.1);
+      }
+
+      /* Directories View */
+      .directories-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 12px;
+      }
+
+      .directories-header h2 {
         margin: 0;
-        font-size: 0.88rem;
+        font-size: 1rem;
+      }
+
+      .directories-header p {
+        margin: 4px 0 0;
+        font-size: 0.82rem;
         color: var(--text-secondary);
       }
 
       ul.directories {
         list-style: none;
         padding: 0;
-        margin: 0;
-        display: grid;
-        gap: 10px;
+        margin: 0 0 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
       }
 
       .directory-item {
         display: flex;
         justify-content: space-between;
         gap: 10px;
-        padding: 9px 11px;
-        border-radius: 11px;
-        background: rgba(148, 163, 184, 0.08);
-        border: 1px solid rgba(148, 163, 184, 0.18);
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(148, 163, 184, 0.06);
+        border: 1px solid rgba(148, 163, 184, 0.12);
         align-items: center;
       }
 
       .directory-text {
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 2px;
         min-width: 0;
       }
 
       .directory-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
         font-weight: 600;
         color: var(--accent);
-        font-size: 0.92rem;
+        font-size: 0.88rem;
       }
 
       .directory-path {
-        font-size: 0.82rem;
-        color: var(--text-secondary);
+        font-size: 0.75rem;
+        color: var(--text-subtle);
         text-overflow: ellipsis;
         overflow: hidden;
         white-space: nowrap;
       }
 
-      form {
+      .add-directory-form {
         display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
+        gap: 8px;
       }
 
-      input[type='text'] {
-        flex: 1 1 220px;
-        padding: 0.55rem 0.7rem;
-        border-radius: 9px;
-        border: 1px solid rgba(148, 163, 184, 0.28);
-        background: rgba(10, 12, 24, 0.28);
+      .add-directory-form input {
+        flex: 1;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(10, 12, 24, 0.3);
         color: inherit;
-        transition: border-color 150ms ease, box-shadow 150ms ease;
+        font-size: 0.88rem;
       }
 
-      input[type='text']:focus {
+      .add-directory-form input:focus {
         border-color: var(--accent);
         outline: none;
-        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.22);
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
       }
 
+      .add-directory-form input::placeholder {
+        color: var(--text-subtle);
+      }
+
+      /* Toast */
       .toast {
         position: fixed;
-        bottom: clamp(16px, 3vw, 28px);
+        bottom: 20px;
         left: 50%;
         transform: translateX(-50%);
-        min-width: min(420px, calc(100vw - 40px));
-        padding: 0.75rem 1rem;
-        border-radius: 14px;
-        background: rgba(15, 118, 110, 0.92);
+        padding: 10px 16px;
+        border-radius: 10px;
+        background: rgba(15, 118, 110, 0.95);
         color: #ecfeff;
-        text-align: center;
-        box-shadow: 0 18px 40px rgba(3, 94, 108, 0.35);
+        font-size: 0.85rem;
+        box-shadow: 0 8px 24px rgba(3, 94, 108, 0.3);
         pointer-events: none;
         transition: opacity 180ms ease, transform 180ms ease;
       }
 
       .toast[data-level='warn'] {
-        background: rgba(245, 158, 11, 0.92);
+        background: rgba(245, 158, 11, 0.95);
         color: #0f172a;
       }
 
       .toast[data-level='error'] {
-        background: rgba(239, 68, 68, 0.92);
+        background: rgba(239, 68, 68, 0.95);
         color: #fff;
       }
 
@@ -465,22 +468,404 @@
         transform: translate(-50%, 8px);
       }
 
-      @media (max-width: 620px) {
-        main.shell {
-          width: calc(100vw - 16px);
-          height: calc(100vh - 16px);
+      /* Profiles View */
+      .profiles-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 12px;
+      }
+
+      .profiles-header h2 {
+        margin: 0;
+        font-size: 1rem;
+      }
+
+      .profiles-header p {
+        margin: 4px 0 0;
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+      }
+
+      .profiles-list {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        max-height: 280px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+      }
+
+      .profiles-list::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .profiles-list::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .profiles-list::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.3);
+        border-radius: 3px;
+      }
+
+      .profiles-list::-webkit-scrollbar-thumb:hover {
+        background: rgba(148, 163, 184, 0.5);
+      }
+
+      .profile-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        background: rgba(148, 163, 184, 0.05);
+        border: 1px solid rgba(148, 163, 184, 0.1);
+        transition: background 150ms ease;
+      }
+
+      .profile-item:hover {
+        background: rgba(148, 163, 184, 0.1);
+      }
+
+      .profile-item[data-enabled="false"] {
+        opacity: 0.5;
+      }
+
+      .profile-checkbox {
+        flex-shrink: 0;
+      }
+
+      .profile-checkbox input {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        accent-color: var(--accent);
+      }
+
+      .profile-info {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        overflow: hidden;
+      }
+
+      .profile-name {
+        font-weight: 600;
+        font-size: 0.82rem;
+        color: var(--text-primary);
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .profile-rule {
+        font-size: 0.72rem;
+        color: var(--text-subtle);
+        font-family: var(--font-mono);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .profile-rule .arrow {
+        color: var(--accent);
+        margin: 0 4px;
+      }
+
+      .profile-actions {
+        flex-shrink: 0;
+      }
+
+      .profile-actions button {
+        padding: 4px 8px;
+        font-size: 0.75rem;
+      }
+
+      .add-profile-btn {
+        width: 100%;
+        padding: 8px;
+        font-size: 0.82rem;
+      }
+
+      /* Modal */
+      .modal {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+      }
+
+      .modal[hidden] {
+        display: none;
+      }
+
+      .modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+      }
+
+      .modal-content {
+        position: relative;
+        width: 100%;
+        max-width: 500px;
+        margin: 16px;
+        max-height: calc(100vh - 32px);
+        overflow-y: auto;
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .modal-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+      }
+
+      .modal-close {
+        background: transparent;
+        border: none;
+        font-size: 1.5rem;
+        color: var(--text-subtle);
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+      }
+
+      .modal-close:hover {
+        background: rgba(148, 163, 184, 0.1);
+        color: var(--text-primary);
+      }
+
+      /* Form */
+      .profile-form {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .form-group label {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+      }
+
+      .form-group input[type="text"],
+      .form-group input[type="number"] {
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(10, 12, 24, 0.3);
+        color: inherit;
+        font-size: 0.88rem;
+        font-family: inherit;
+      }
+
+      .form-group input:focus {
+        border-color: var(--accent);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+      }
+
+      .form-group input::placeholder {
+        color: var(--text-subtle);
+      }
+
+      .form-hint {
+        font-size: 0.75rem;
+        color: var(--text-subtle);
+      }
+
+      /* Template Autocomplete */
+      .template-input-wrapper {
+        position: relative;
+      }
+
+      .template-autocomplete {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        margin-top: 4px;
+        background: var(--card-bg);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        z-index: 200;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+
+      .template-autocomplete[hidden] {
+        display: none;
+      }
+
+      .autocomplete-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+      }
+
+      .autocomplete-item:last-child {
+        border-bottom: none;
+      }
+
+      .autocomplete-item:hover,
+      .autocomplete-item.selected {
+        background: rgba(56, 189, 248, 0.12);
+      }
+
+      .autocomplete-item .var-name {
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        color: var(--accent);
+      }
+
+      .autocomplete-item .var-desc {
+        font-size: 0.75rem;
+        color: var(--text-subtle);
+      }
+
+      .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.88rem;
+        cursor: pointer;
+      }
+
+      .checkbox-label input {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--accent);
+      }
+
+      /* Preview Section */
+      .preview-section {
+        padding: 14px;
+        background: rgba(148, 163, 184, 0.06);
+        border-radius: 8px;
+        border: 1px solid rgba(148, 163, 184, 0.12);
+      }
+
+      .preview-label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--text-subtle);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 10px;
+      }
+
+      .preview-box {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+      }
+
+      .preview-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .preview-icon {
+        flex-shrink: 0;
+        width: 20px;
+        text-align: center;
+        font-size: 0.75rem;
+      }
+
+      .preview-icon.from {
+        color: var(--text-subtle);
+      }
+
+      .preview-icon.to {
+        color: var(--accent);
+      }
+
+      .preview-filename {
+        flex: 1;
+        word-break: break-all;
+        padding: 6px 10px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.2);
+      }
+
+      .preview-filename.original {
+        color: var(--text-subtle);
+      }
+
+      .preview-filename.result {
+        color: var(--success);
+        background: rgba(34, 197, 94, 0.08);
+        border: 1px solid rgba(34, 197, 94, 0.15);
+      }
+
+      /* Modal Actions */
+      .modal-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 8px;
+        padding-top: 14px;
+        border-top: 1px solid rgba(148, 163, 184, 0.12);
+      }
+
+      .modal-actions-right {
+        display: flex;
+        gap: 8px;
+      }
+
+      #delete-profile-btn {
+        color: #ef4444;
+      }
+
+      #delete-profile-btn:hover {
+        background: rgba(239, 68, 68, 0.1);
+      }
+
+      @media (prefers-color-scheme: light) {
+        .form-group input[type="text"],
+        .form-group input[type="number"] {
+          background: rgba(255, 255, 255, 0.8);
         }
 
-        .metrics {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+        .profile-item {
+          background: rgba(148, 163, 184, 0.08);
         }
 
-        .overview-grid {
-          grid-template-columns: minmax(0, 1fr);
-        }
-
-        .toast {
-          min-width: calc(100vw - 32px);
+        .preview-section {
+          background: rgba(148, 163, 184, 0.08);
         }
       }
     </style>
@@ -490,87 +875,161 @@
       <nav class="tab-strip">
         <button type="button" class="tab-button active" data-tab-target="overview">Overview</button>
         <button type="button" class="tab-button" data-tab-target="directories">Directories</button>
+        <button type="button" class="tab-button" data-tab-target="profiles">Profiles</button>
       </nav>
 
       <section class="view active" data-tab="overview">
         <div class="card hero">
-          <header class="hero__header">
-            <h1>Namefix &gt; Preferences</h1>
-            <p class="hero__subtitle" id="status-summary">Connecting…</p>
-          </header>
-          <div class="metrics">
-            <div class="metric">
-              <span class="metric__label">State</span>
-              <span class="metric__value" id="metric-running">—</span>
+          <div class="hero-header">
+            <div class="status-indicator" id="status-indicator" data-state="paused">
+              <span id="status-icon">⏸</span>
             </div>
-            <div class="metric">
-              <span class="metric__label">Directories</span>
-              <span class="metric__value" id="metric-directories">0</span>
+            <div class="hero-text">
+              <h1 class="hero-title" id="status-title">Paused</h1>
+              <p class="hero-subtitle" id="status-summary">Connecting…</p>
             </div>
-            <div class="metric">
-              <span class="metric__label">Dry Run</span>
-              <span class="metric__value" id="metric-dry-run">—</span>
-            </div>
-            <div class="metric">
-              <span class="metric__label">Launch on Login</span>
-              <span class="metric__value" id="metric-launch">—</span>
-            </div>
+          </div>
+          <div class="status-badges">
+            <span class="badge" id="badge-dirs" data-state="muted">
+              <span class="badge-dot"></span>
+              <span id="metric-directories">0</span> directories
+            </span>
+            <span class="badge" id="badge-dry-run" data-state="muted">
+              <span class="badge-dot"></span>
+              Dry run <span id="metric-dry-run">off</span>
+            </span>
+            <span class="badge" id="badge-login" data-state="muted">
+              <span class="badge-dot"></span>
+              Auto-start <span id="metric-launch">off</span>
+            </span>
           </div>
         </div>
 
-        <div class="overview-grid">
-          <div class="card control-card">
-            <h2>Controls</h2>
-            <div class="primary-action">
-              <button id="toggle-running" class="button-primary" type="button">Toggle Watching</button>
-            </div>
-            <div class="switches">
-              <label class="switch">
-                <input type="checkbox" id="dry-run-toggle" />
-                <span class="switch__track" aria-hidden="true">
-                  <span class="switch__thumb"></span>
-                </span>
-                <span class="switch__label">Dry Run Preview</span>
-              </label>
-              <label class="switch">
-                <input type="checkbox" id="launch-login-toggle" />
-                <span class="switch__track" aria-hidden="true">
-                  <span class="switch__thumb"></span>
-                </span>
-                <span class="switch__label">Launch on Login</span>
-              </label>
-            </div>
-            <div class="control-actions">
-              <button id="undo-button" type="button" class="button-secondary">Undo Last Rename</button>
-            </div>
+        <div class="card controls">
+          <div class="control-row">
+            <button id="toggle-running" class="button-primary" type="button">Start Watching</button>
+            <button id="undo-button" type="button" class="button-secondary">Undo</button>
           </div>
-
-          <div class="card status-card">
-            <header>
-              <h2>Live Service Status</h2>
-              <button id="refresh-button" type="button" class="button-ghost">Refresh</button>
-            </header>
-            <pre id="status" class="status-output" aria-live="polite">{
-  "status": "loading"
-}</pre>
+          <div class="switches">
+            <label class="switch">
+              <input type="checkbox" id="dry-run-toggle" />
+              <span class="switch__track" aria-hidden="true">
+                <span class="switch__thumb"></span>
+              </span>
+              <span class="switch__content">
+                <span class="switch__label">Dry Run Mode</span>
+                <span class="switch__description">Preview renames without applying them</span>
+              </span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="launch-login-toggle" />
+              <span class="switch__track" aria-hidden="true">
+                <span class="switch__thumb"></span>
+              </span>
+              <span class="switch__content">
+                <span class="switch__label">Launch on Login</span>
+                <span class="switch__description">Start Namefix when you log in</span>
+              </span>
+            </label>
           </div>
         </div>
       </section>
 
       <section class="view" data-tab="directories">
-        <div class="card directories-card">
-          <header>
-            <h2>Watched Directories</h2>
-            <p class="card__subtitle">Choose which folders Namefix monitors.</p>
-          </header>
+        <div class="card">
+          <div class="directories-header">
+            <div>
+              <h2>Watched Directories</h2>
+              <p>Folders that Namefix monitors for screenshots</p>
+            </div>
+          </div>
           <ul id="directories" class="directories"></ul>
-          <form id="add-directory-form">
-            <input type="text" id="new-directory" placeholder="/path/to/watch" autocomplete="off" />
-            <button type="submit" class="button-secondary">Add Directory</button>
+          <form id="add-directory-form" class="add-directory-form">
+            <input type="text" id="new-directory" placeholder="/path/to/folder" autocomplete="off" />
+            <button type="submit" class="button-secondary">Add</button>
           </form>
         </div>
       </section>
+
+      <section class="view" data-tab="profiles">
+        <div class="card">
+          <div class="profiles-header">
+            <div>
+              <h2>Rename Profiles</h2>
+              <p>Rules that determine how files are renamed</p>
+            </div>
+          </div>
+          <ul id="profiles" class="profiles-list"></ul>
+          <button type="button" id="add-profile-btn" class="button-secondary add-profile-btn">+ Add Profile</button>
+        </div>
+      </section>
     </main>
+
+    <!-- Profile Editor Modal -->
+    <div id="profile-modal" class="modal" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="modal-content card">
+        <div class="modal-header">
+          <h3 id="modal-title">Edit Profile</h3>
+          <button type="button" class="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <form id="profile-form" class="profile-form">
+          <input type="hidden" id="profile-id" />
+          <div class="form-group">
+            <label for="profile-name">Name</label>
+            <input type="text" id="profile-name" placeholder="Screenshots" required />
+          </div>
+          <div class="form-group">
+            <label for="profile-pattern">Pattern</label>
+            <input type="text" id="profile-pattern" placeholder="Screenshot*" required />
+            <div class="form-hint">Glob pattern to match filenames (e.g., Screenshot*, IMG_*)</div>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="profile-is-regex" />
+              <span>Use regex instead of glob</span>
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="profile-template">Rename Template</label>
+            <div class="template-input-wrapper">
+              <input type="text" id="profile-template" placeholder="<prefix>_<datetime>" required autocomplete="off" />
+              <div id="template-autocomplete" class="template-autocomplete" hidden></div>
+            </div>
+            <div class="form-hint">Type &lt; to insert variables: date, time, datetime, original, ext, counter, prefix</div>
+          </div>
+          <div class="form-group">
+            <label for="profile-prefix">Prefix</label>
+            <input type="text" id="profile-prefix" placeholder="(optional)" />
+          </div>
+          <div class="form-group">
+            <label for="profile-priority">Priority</label>
+            <input type="number" id="profile-priority" value="1" min="1" max="100" />
+            <div class="form-hint">Lower = matched first</div>
+          </div>
+          <div class="preview-section">
+            <div class="preview-label">Preview</div>
+            <div class="preview-box">
+              <div class="preview-row">
+                <span class="preview-icon from">IN</span>
+                <div class="preview-filename original" id="preview-original">Screenshot 2024-12-26 at 21.30.00.png</div>
+              </div>
+              <div class="preview-row">
+                <span class="preview-icon to">→</span>
+                <div class="preview-filename result" id="preview-result">Screenshot_2024-12-26_21-30-00.png</div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="button-ghost" id="delete-profile-btn">Delete</button>
+            <div class="modal-actions-right">
+              <button type="button" class="button-secondary modal-cancel">Cancel</button>
+              <button type="submit" class="button-primary">Save Profile</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

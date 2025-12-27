@@ -59,3 +59,49 @@ pub async fn remove_watch_dir(
 ) -> tauri::Result<Vec<String>> {
     map_bridge_err(bridge::remove_watch_dir(&state, directory).await)
 }
+
+#[tauri::command]
+pub async fn get_profiles(state: tauri::State<'_, BridgeState>) -> tauri::Result<Vec<bridge::Profile>> {
+    map_bridge_err(bridge::get_profiles(&state).await)
+}
+
+#[tauri::command]
+pub async fn get_profile(
+    state: tauri::State<'_, BridgeState>,
+    id: String,
+) -> tauri::Result<Option<bridge::Profile>> {
+    map_bridge_err(bridge::get_profile(&state, id).await)
+}
+
+#[tauri::command]
+pub async fn set_profile(
+    state: tauri::State<'_, BridgeState>,
+    profile: bridge::Profile,
+) -> tauri::Result<Vec<bridge::Profile>> {
+    map_bridge_err(bridge::set_profile(&state, profile).await)
+}
+
+#[tauri::command]
+pub async fn delete_profile(
+    state: tauri::State<'_, BridgeState>,
+    id: String,
+) -> tauri::Result<Vec<bridge::Profile>> {
+    map_bridge_err(bridge::delete_profile(&state, id).await)
+}
+
+#[tauri::command]
+pub async fn toggle_profile(
+    state: tauri::State<'_, BridgeState>,
+    id: String,
+    enabled: Option<bool>,
+) -> tauri::Result<Vec<bridge::Profile>> {
+    map_bridge_err(bridge::toggle_profile(&state, id, enabled).await)
+}
+
+#[tauri::command]
+pub async fn reorder_profiles(
+    state: tauri::State<'_, BridgeState>,
+    ordered_ids: Vec<String>,
+) -> tauri::Result<Vec<bridge::Profile>> {
+    map_bridge_err(bridge::reorder_profiles(&state, ordered_ids).await)
+}

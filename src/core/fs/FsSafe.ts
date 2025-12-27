@@ -2,18 +2,43 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 export class FsSafe {
+	/**
+	 * Checks if a file has stabilized (size unchanged for ~250ms).
+	 * Returns false if file disappears during check (not an error).
+	 */
 	async isStable(p: string): Promise<boolean> {
 		const start = Date.now();
 		let prev: number | null = null;
+
 		while (true) {
-			const st = await fs.stat(p);
+			let st: Awaited<ReturnType<typeof fs.stat>>;
+			try {
+				st = await fs.stat(p);
+			} catch (err) {
+				// File disappeared - not stable (but not an error)
+				if (isMissingError(err)) {
+					return false;
+				}
+				throw err; // Re-throw other errors
+			}
+
 			const size = st.size;
 			if (prev !== null && size === prev) return true;
 			prev = size;
 			if (Date.now() - start > 750) return true; // idle window
 			await delay(250);
-			// Loop to check unchanged twice at 250ms intervals
-			const st2 = await fs.stat(p);
+
+			// Second stat check
+			let st2: Awaited<ReturnType<typeof fs.stat>>;
+			try {
+				st2 = await fs.stat(p);
+			} catch (err) {
+				if (isMissingError(err)) {
+					return false;
+				}
+				throw err;
+			}
+
 			if (st2.size === size) return true;
 			prev = st2.size;
 			if (Date.now() - start > 750) return true;

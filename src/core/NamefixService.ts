@@ -1,11 +1,18 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import type { IConfig, IConfigStore, IWatchService, ILogger } from '../types/index.js';
+import type {
+	IConfig,
+	IConfigStore,
+	IWatchService,
+	ILogger,
+	IProfile,
+	WatchServiceErrorHandler,
+} from '../types/index.js';
 import { ConfigStore } from './config/ConfigStore.js';
 import { Logger } from './log/Logger.js';
 import { EventBus } from './events/EventBus.js';
 import { RenameService } from './rename/RenameService.js';
-import { Matcher } from './rename/Matcher.js';
+import { Matcher, ProfileMatcher } from './rename/Matcher.js';
 import { FsSafe } from './fs/FsSafe.js';
 import { WatchService } from './fs/WatchService.js';
 import { JournalStore } from './journal/JournalStore.js';
@@ -25,13 +32,23 @@ export class NamefixService {
 	private renamer: RenameService;
 	private fsSafe: FsSafe;
 	private journal: JournalStore;
+	/** @deprecated Legacy matcher for backwards compatibility */
 	private matcher: Matcher | null = null;
+	/** Profile-based matcher for new config format */
+	private profileMatcher: ProfileMatcher | null = null;
 	private watchers = new Map<string, IWatchService>();
+	private watcherErrorUnsubscribers = new Map<string, () => void>();
 	private running = false;
 	private config: IConfig | null = null;
 	private unsubscribeConfig: (() => void) | null = null;
 	private watcherLock: Promise<void> = Promise.resolve();
 	private createWatcher: (dir: string, fsSafe: FsSafe) => IWatchService;
+
+	// Health monitoring
+	private healthCheckInterval: ReturnType<typeof setInterval> | null = null;
+	private static readonly HEALTH_CHECK_INTERVAL_MS = 30_000; // 30 seconds
+	private static readonly MAX_RESTART_ATTEMPTS = 3;
+	private watcherRestartAttempts = new Map<string, number>();
 
 	constructor(
 		deps: {
@@ -74,13 +91,16 @@ export class NamefixService {
 	async start(): Promise<void> {
 		if (this.running) return;
 		this.running = true;
+		this.watcherRestartAttempts.clear();
 		await this.syncWatchers();
+		this.startHealthMonitor();
 		this.emitStatus();
 	}
 
 	async stop(): Promise<void> {
 		if (!this.running) return;
 		this.running = false;
+		this.stopHealthMonitor();
 		await this.syncWatchers();
 		this.emitStatus();
 	}
@@ -100,6 +120,67 @@ export class NamefixService {
 
 	async setLaunchOnLogin(value: boolean): Promise<IConfig> {
 		return await this.configStore.set({ launchOnLogin: value });
+	}
+
+	/**
+	 * Get all configured profiles.
+	 */
+	getProfiles(): IProfile[] {
+		return this.getConfig().profiles ?? [];
+	}
+
+	/**
+	 * Get a profile by ID.
+	 */
+	getProfile(id: string): IProfile | undefined {
+		return this.getProfiles().find((p) => p.id === id);
+	}
+
+	/**
+	 * Add or update a profile.
+	 */
+	async setProfile(profile: IProfile): Promise<IConfig> {
+		const profiles = [...this.getProfiles()];
+		const idx = profiles.findIndex((p) => p.id === profile.id);
+		if (idx >= 0) {
+			profiles[idx] = profile;
+		} else {
+			profiles.push(profile);
+		}
+		return await this.configStore.set({ profiles });
+	}
+
+	/**
+	 * Delete a profile by ID.
+	 */
+	async deleteProfile(id: string): Promise<IConfig> {
+		const profiles = this.getProfiles().filter((p) => p.id !== id);
+		return await this.configStore.set({ profiles });
+	}
+
+	/**
+	 * Toggle a profile's enabled state.
+	 */
+	async toggleProfile(id: string, enabled?: boolean): Promise<IConfig> {
+		const profile = this.getProfile(id);
+		if (!profile) return this.getConfig();
+		const newEnabled = enabled ?? !profile.enabled;
+		return await this.setProfile({ ...profile, enabled: newEnabled });
+	}
+
+	/**
+	 * Reorder profiles by updating their priorities.
+	 */
+	async reorderProfiles(orderedIds: string[]): Promise<IConfig> {
+		const profiles = [...this.getProfiles()];
+		// Update priorities based on the new order
+		for (let i = 0; i < orderedIds.length; i++) {
+			const profile = profiles.find((p) => p.id === orderedIds[i]);
+			if (profile) {
+				profile.priority = i + 1;
+			}
+		}
+		return await this.configStore.set({ profiles });
 	}
 
 	async addWatchDir(dir: string): Promise<IConfig> {
@@ -200,7 +281,15 @@ export class NamefixService {
 				}
 			}
 			if (stops.length) {
-				await Promise.allSettled(stops);
+				const results = await Promise.allSettled(stops);
+				// Log any failures
+				for (const result of results) {
+					if (result.status === 'rejected') {
+						this.logger.error('Watcher stop failed', {
+							error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+						});
+					}
+				}
 			}
 
 			if (!this.running || desiredDirs.length === 0) {
@@ -224,6 +313,19 @@ export class NamefixService {
 	private async startWatcher(dir: string): Promise<void> {
 		await this.ensureDir(dir);
 		const watcher = this.createWatcher(dir, this.fsSafe);
+
+		// Register error handler if available
+		if (typeof watcher.onError === 'function') {
+			const unsubscribe = watcher.onError((error: Error, directory: string) => {
+				this.logger.error('Watcher error', { directory, error: error.message });
+				this.emit('toast', {
+					level: 'warn',
+					message: `Watcher issue for ${path.basename(directory)}: ${error.message}`,
+				});
+			});
+			this.watcherErrorUnsubscribers.set(dir, unsubscribe);
+		}
+
 		this.watchers.set(dir, watcher);
 		await watcher.start((ev) => {
 			this.handleWatchEvent(dir, ev).catch((err) => {
@@ -233,6 +335,13 @@ export class NamefixService {
 	}
 
 	private async stopWatcher(dir: string, watcher: IWatchService): Promise<void> {
+		// Clean up error handler
+		const unsubscribe = this.watcherErrorUnsubscribers.get(dir);
+		if (unsubscribe) {
+			unsubscribe();
+			this.watcherErrorUnsubscribers.delete(dir);
+		}
+
 		try {
 			if (typeof watcher.stop === 'function') {
 				await watcher.stop();
@@ -272,6 +381,13 @@ export class NamefixService {
 			watchDirs: normalizedDirs,
 			watchDir: primaryDir,
 		};
+		// Initialize profile matcher if profiles exist
+		if (cfg.profiles && cfg.profiles.length > 0) {
+			this.profileMatcher = new ProfileMatcher(cfg.profiles);
+		} else {
+			this.profileMatcher = null;
+		}
+		// Legacy matcher for backwards compatibility
 		this.matcher = new Matcher(cfg.include, cfg.exclude);
 		this.emitStatus();
 	}
@@ -292,11 +408,116 @@ export class NamefixService {
 		directory: string,
 		ev: { path: string; birthtimeMs: number; mtimeMs: number; size: number },
 	) {
-		if (!this.matcher) return;
 		const cfg = this.getConfig();
 		const basename = path.basename(ev.path);
-		if (!this.matcher.test(basename)) return;
 		const extVal = path.extname(ev.path);
+		const dir = path.dirname(ev.path);
+
+		// Try profile-based matching first
+		const matchedProfile = this.profileMatcher?.match(basename);
+
+		if (matchedProfile) {
+			// Profile-based renaming
+			await this.handleProfileRename(directory, ev, basename, extVal, dir, matchedProfile, cfg);
+		} else if (this.matcher?.test(basename)) {
+			// Legacy fallback: use include/exclude patterns
+			await this.handleLegacyRename(directory, ev, basename, extVal, dir, cfg);
+		}
+		// No match - file is ignored
+	}
+
+	private async handleProfileRename(
+		directory: string,
+		ev: { path: string; birthtimeMs: number; mtimeMs: number; size: number },
+		basename: string,
+		extVal: string,
+		dir: string,
+		profile: IProfile,
+		cfg: IConfig,
+	) {
+		if (!this.renamer.needsRenameForProfile(basename, profile)) {
+			this.emit('file', {
+				kind: 'skipped',
+				directory,
+				file: basename,
+				timestamp: Date.now(),
+				message: 'idempotent',
+			});
+			return;
+		}
+
+		const { filename: targetBase } = await this.renamer.targetForProfile(
+			ev.path,
+			{ birthtime: new Date(ev.birthtimeMs), ext: extVal },
+			profile,
+		);
+		const targetPath = path.join(dir, targetBase);
+
+		try {
+			if (cfg.dryRun) {
+				this.emit('file', {
+					kind: 'preview',
+					directory,
+					file: basename,
+					target: targetBase,
+					timestamp: Date.now(),
+				});
+				this.logger.info('preview', { from: ev.path, to: targetPath, profile: profile.name });
+				return;
+			}
+
+			if (!(await pathExists(ev.path))) {
+				let restored = false;
+				for (let i = 0; i < 6; i++) {
+					await delay(150);
+					if (await pathExists(ev.path)) {
+						restored = true;
+						break;
+					}
+				}
+				if (!restored) {
+					this.logger.warn('source disappeared before rename', { path: ev.path });
+					return;
+				}
+			}
+
+			try {
+				await this.fsSafe.atomicRename(ev.path, targetPath);
+				await this.journal.record(ev.path, targetPath);
+				this.emit('file', {
+					kind: 'applied',
+					directory,
+					file: basename,
+					target: targetBase,
+					timestamp: Date.now(),
+				});
+				this.eventBus.emit('file:renamed', { from: ev.path, to: targetPath });
+			} catch (e: unknown) {
+				const error = e instanceof Error ? e : new Error(String(e));
+				const message = error.message || 'rename failed';
+				this.logger.error(error);
+				this.emit('file', {
+					kind: 'error',
+					directory,
+					file: basename,
+					timestamp: Date.now(),
+					message,
+				});
+				this.eventBus.emit('file:error', { path: ev.path, error });
+			}
+		} finally {
+			this.renamer.release(dir, targetBase);
+		}
+	}
+
+	private async handleLegacyRename(
+		directory: string,
+		ev: { path: string; birthtimeMs: number; mtimeMs: number; size: number },
+		basename: string,
+		extVal: string,
+		dir: string,
+		cfg: IConfig,
+	) {
 		if (!this.renamer.needsRename(basename, cfg.prefix)) {
 			this.emit('file', {
 				kind: 'skipped',
@@ -313,7 +534,6 @@ export class NamefixService {
 			ext: extVal,
 			prefix: cfg.prefix,
 		});
-		const dir = path.dirname(ev.path);
 		const targetPath = path.join(dir, targetBase);
 
 		try {
@@ -405,6 +625,83 @@ export class NamefixService {
 
 	private normalizePath(dir: string): string {
 		return path.resolve(dir.trim());
+	}
+
+	// Health monitoring methods
+	private startHealthMonitor(): void {
+		this.stopHealthMonitor();
+		this.healthCheckInterval = setInterval(() => {
+			this.checkWatcherHealth().catch((err) => {
+				this.logger.error(err instanceof Error ? err : String(err));
+			});
+		}, NamefixService.HEALTH_CHECK_INTERVAL_MS);
+	}
+
+	private stopHealthMonitor(): void {
+		if (this.healthCheckInterval) {
+			clearInterval(this.healthCheckInterval);
+			this.healthCheckInterval = null;
+		}
+	}
+
+	private async checkWatcherHealth(): Promise<void> {
+		if (!this.running) return;
+
+		const unhealthyDirs: string[] = [];
+		for (const [dir, watcher] of this.watchers) {
+			// Check if watcher has isHealthy method
+			if (typeof watcher.isHealthy === 'function') {
+				if (!watcher.isHealthy()) {
+					this.logger.warn('Watcher unhealthy', { dir });
+					unhealthyDirs.push(dir);
+					continue;
+				}
+			}
+
+			// Also check if directory still exists
+			try {
+				await fs.access(dir);
+			} catch {
+				this.logger.warn('Watch directory no longer accessible', { dir });
+				unhealthyDirs.push(dir);
+			}
+		}
+
+		for (const dir of unhealthyDirs) {
+			const attempts = this.watcherRestartAttempts.get(dir) ?? 0;
+			if (attempts >= NamefixService.MAX_RESTART_ATTEMPTS) {
+				this.logger.error('Max restart attempts reached for watcher', { dir, attempts });
+				this.emit('toast', {
+					level: 'error',
+					message: `Watcher for ${path.basename(dir)} failed permanently. Please check directory.`,
+				});
+				continue;
+			}
+
+			this.watcherRestartAttempts.set(dir, attempts + 1);
+			this.logger.warn('Restarting unhealthy watcher', { dir, attempt: attempts + 1 });
+
+			const oldWatcher = this.watchers.get(dir);
+			if (oldWatcher) {
+				await this.stopWatcher(dir, oldWatcher);
+			}
+
+			try {
+				await this.startWatcher(dir);
+				// Reset attempts on successful restart
+				this.watcherRestartAttempts.set(dir, 0);
+				this.emit('toast', {
+					level: 'info',
+					message: `Watcher recovered for ${path.basename(dir)}`,
+				});
+				this.emitStatus();
+			} catch (err) {
+				this.logger.error('Failed to restart watcher', {
+					dir,
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}
+		}
 	}
 }
 

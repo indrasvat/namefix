@@ -1,4 +1,4 @@
-.PHONY: help all build test lint fmt check ci clean dev dev-app release stage-resources
+.PHONY: help all build test lint fmt check ci clean dev dev-app run-app release stage-resources
 
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
@@ -34,6 +34,10 @@ dev: ## Run CLI/TUI in dev mode
 dev-app: ## Run menu bar app in dev mode
 	@printf "\033[33mStarting menu bar app (dev)...\033[0m\n"
 	@$(PNPM) run menubar
+
+run-app: build-app ## Build and run menu bar app (release)
+	@printf "\033[32mStarting menu bar app...\033[0m\n"
+	@open "apps/menu-bar/src-tauri/target/release/bundle/macos/Namefix Menu Bar.app"
 
 test: ## Run unit tests
 	@printf "\033[33mRunning tests...\033[0m\n"
