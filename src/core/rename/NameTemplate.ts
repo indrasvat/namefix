@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 function pad2(n: number): string {
 	return String(n).padStart(2, '0');
@@ -204,8 +205,8 @@ export const DEFAULT_PROFILES = [
 ] as const;
 
 /**
- * Generate a unique ID for a new profile.
+ * Generate a unique ID for a new profile using crypto.randomUUID().
  */
 export function generateProfileId(): string {
-	return `profile-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+	return `profile-${randomUUID()}`;
 }

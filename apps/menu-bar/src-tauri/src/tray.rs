@@ -6,11 +6,12 @@ use tauri::{
     image::Image,
     menu::{CheckMenuItem, MenuBuilder, MenuItem, PredefinedMenuItem, Submenu, SubmenuBuilder},
     tray::{TrayIcon, TrayIconBuilder},
-    AppHandle, Listener, Manager, Wry,
+    AppHandle, Emitter, Listener, Manager, Wry,
 };
 
 use crate::bridge::{self, BridgeState, ServiceStatus};
 
+const MENU_VERSION: &str = "version-label";
 const MENU_STATUS: &str = "status-label";
 const MENU_TOGGLE_RUNNING: &str = "toggle-running";
 const MENU_TOGGLE_DRY_RUN: &str = "toggle-dry-run";
@@ -19,6 +20,18 @@ const MENU_UNDO: &str = "undo";
 const MENU_OPEN_MAIN: &str = "open-main";
 const MENU_QUIT: &str = "quit";
 const MENU_DIRECTORIES: &str = "directories";
+
+fn get_version_string() -> String {
+    let version = env!("CARGO_PKG_VERSION");
+    let build_type = if cfg!(debug_assertions) {
+        "debug"
+    } else if option_env!("NAMEFIX_OFFICIAL_BUILD").is_some() {
+        "release"
+    } else {
+        "local"
+    };
+    format!("v{} ({})", version, build_type)
+}
 
 #[derive(Clone)]
 pub struct TrayState {
@@ -61,6 +74,9 @@ impl TrayState {
 }
 
 pub fn init_tray(app: &AppHandle<Wry>, bridge: &BridgeState) -> tauri::Result<TrayState> {
+    let version_item = MenuItem::with_id(app, MENU_VERSION, get_version_string(), true, None::<&str>)?;
+    version_item.set_enabled(false)?;
+
     let status_item = MenuItem::with_id(app, MENU_STATUS, "Status: Loading…", true, None::<&str>)?;
     status_item.set_enabled(false)?;
 
@@ -74,6 +90,7 @@ pub fn init_tray(app: &AppHandle<Wry>, bridge: &BridgeState) -> tauri::Result<Tr
     let directories = SubmenuBuilder::with_id(app, MENU_DIRECTORIES, "Directories").build()?;
 
     let menu = MenuBuilder::new(app)
+        .item(&version_item)
         .item(&status_item)
         .separator()
         .item(&toggle_running)
@@ -95,45 +112,75 @@ pub fn init_tray(app: &AppHandle<Wry>, bridge: &BridgeState) -> tauri::Result<Tr
         .on_menu_event(move |app, event| {
             let event_id = event.id().0.clone();
             let app_handle = app.clone();
+            log::info!("Tray menu event received: {}", event_id);
             async_runtime::spawn(async move {
                 let bridge_state = app_handle.state::<BridgeState>();
                 let bridge = bridge_state.inner().clone();
                 drop(bridge_state);
-                match event_id.as_str() {
+
+                log::info!("Processing menu action: {}", event_id);
+                let action_result: Result<(), String> = match event_id.as_str() {
                     MENU_TOGGLE_RUNNING => {
-                        if let Err(err) = bridge::toggle_running(&bridge, None).await {
-                            log::error!("toggle_running failed: {}", err);
-                        }
+                        log::info!("Calling toggle_running on bridge");
+                        let result = bridge::toggle_running(&bridge, None).await;
+                        log::info!("toggle_running result: {:?}", result);
+                        result.map(|_| ())
                     }
                     MENU_TOGGLE_DRY_RUN => {
                         let tray_state = app_handle.state::<TrayState>().inner().clone();
                         let current = tray_state.status();
-                        if let Err(err) = bridge::set_dry_run(&bridge, !current.dry_run).await {
-                            log::error!("set_dry_run failed: {}", err);
-                        }
+                        bridge::set_dry_run(&bridge, !current.dry_run).await.map(|_| ())
                     }
                     MENU_LAUNCH_ON_LOGIN => {
                         let tray_state = app_handle.state::<TrayState>().inner().clone();
                         let current = tray_state.status();
-                        if let Err(err) = bridge::set_launch_on_login(&bridge, !current.launch_on_login).await {
-                            log::error!("set_launch_on_login failed: {}", err);
-                        }
+                        bridge::set_launch_on_login(&bridge, !current.launch_on_login).await.map(|_| ())
                     }
                     MENU_UNDO => {
-                        if let Err(err) = bridge::undo(&bridge).await {
-                            log::error!("undo failed: {}", err);
-                        }
+                        bridge::undo(&bridge).await.map(|_| ())
                     }
                     MENU_OPEN_MAIN => {
                         if let Some(window) = app_handle.get_webview_window("main") {
                             let _ = window.show();
                             let _ = window.set_focus();
                         }
+                        Ok(())
                     }
                     MENU_QUIT => {
                         app_handle.exit(0);
+                        Ok(())
                     }
-                    _ => {}
+                    _ => Ok(()),
+                };
+
+                // Log errors and emit toast for user feedback
+                if let Err(ref err) = action_result {
+                    log::error!("Menu action '{}' failed: {}", event_id, err);
+                    let _ = app_handle.emit("service://toast", serde_json::json!({
+                        "message": format!("Action failed: {}", err),
+                        "level": "error"
+                    }));
+                }
+
+                // Force status refresh to ensure tray reflects actual state
+                // This is critical because the async spawn doesn't block the menu event
+                log::info!("Fetching status after action");
+                match bridge::get_status(&bridge).await {
+                    Ok(status) => {
+                        log::info!("Got status: running={}, dirs={}", status.running, status.directories.len());
+                        if let Some(tray_state) = app_handle.try_state::<TrayState>() {
+                            if let Err(err) = tray_state.apply_status(&app_handle, &status) {
+                                log::error!("Failed to update tray after action: {}", err);
+                            } else {
+                                log::info!("Tray updated successfully");
+                            }
+                        } else {
+                            log::error!("TrayState not available");
+                        }
+                    }
+                    Err(err) => {
+                        log::error!("Failed to get status after action: {}", err);
+                    }
                 }
             });
         })

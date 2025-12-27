@@ -1,12 +1,12 @@
 [package]
 name = "namefix_menu_bar"
-version = "0.1.0"
+version = "0.2.7"
 edition = "2021"
 description = "Namefix menu bar companion"
 license = "MIT"
 
 [build-dependencies]
-tauri-build = { version = "2.5.1" }
+tauri-build = { version = "2.5.1", features = [] }
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -17,6 +17,7 @@ tokio = { version = "1.37", features = ["process", "sync", "io-util"] }
 which = "6.0"
 anyhow = "1.0"
 log = "0.4"
+env_logger = "0.11"
 
 [features]
 default = ["custom-protocol"]

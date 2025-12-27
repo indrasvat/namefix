@@ -16,6 +16,7 @@ class MemoryConfigStore implements IConfigStore {
 			watchDirs: [...initial.watchDirs],
 			include: [...initial.include],
 			exclude: [...initial.exclude],
+			profiles: [...(initial.profiles ?? [])],
 		};
 	}
 
@@ -29,6 +30,9 @@ class MemoryConfigStore implements IConfigStore {
 			if (!next.watchDir && this.cfg.watchDirs.length > 0) {
 				this.cfg.watchDir = this.cfg.watchDirs[0] ?? '';
 			}
+		}
+		if (next.profiles) {
+			this.cfg.profiles = [...next.profiles];
 		}
 		this.cfg = { ...this.cfg, ...next };
 		if (!this.cfg.watchDir && this.cfg.watchDirs.length > 0) {
@@ -52,6 +56,7 @@ class MemoryConfigStore implements IConfigStore {
 			watchDirs: [...this.cfg.watchDirs],
 			include: [...this.cfg.include],
 			exclude: [...this.cfg.exclude],
+			profiles: [...this.cfg.profiles],
 		};
 	}
 }
@@ -91,6 +96,18 @@ const baseConfig = (): IConfig => ({
 	dryRun: true,
 	theme: 'default',
 	launchOnLogin: false,
+	profiles: [
+		{
+			id: 'screenshots',
+			name: 'Screenshots',
+			enabled: true,
+			pattern: 'Screenshot*',
+			isRegex: false,
+			template: '<prefix>_<datetime>',
+			prefix: 'Screenshot',
+			priority: 1,
+		},
+	],
 });
 
 describe('NamefixService', () => {

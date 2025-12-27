@@ -453,7 +453,7 @@ async function addDirectory(directory: string) {
 // --- Profile Management ---
 
 function generateId(): string {
-	return `profile_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+	return `profile-${crypto.randomUUID()}`;
 }
 
 function renderProfiles(profiles: Profile[]) {

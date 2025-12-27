@@ -264,7 +264,7 @@ pub async fn get_status(bridge: &BridgeState) -> Result<ServiceStatus, String> {
 pub async fn toggle_running(bridge: &BridgeState, desired: Option<bool>) -> Result<ServiceStatus, String> {
     let params = match desired {
         Some(flag) => json!({ "desired": flag }),
-        None => json!({}),  // Must be empty object, not null - JS default params only apply for undefined
+        None => json!({}),  // Empty object, not null: JS default params only apply for undefined, and JSON-RPC treats null as defined
     };
     bridge.invoke::<ServiceStatus>("toggleRunning", params).await
 }
