@@ -8,11 +8,17 @@ use bridge::{init_bridge, BridgeState};
 use tauri::{Manager, WindowEvent};
 use ipc::{
     add_watch_dir,
+    delete_profile,
+    get_profile,
+    get_profiles,
     get_status,
     list_directories,
     remove_watch_dir,
+    reorder_profiles,
     set_dry_run,
     set_launch_on_login,
+    set_profile,
+    toggle_profile,
     toggle_running,
     undo,
 };
@@ -34,6 +40,9 @@ fn autostart_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 }
 
 fn main() {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    log::info!("Namefix Menu Bar starting...");
+
     tauri::Builder::default()
         .plugin(autostart_plugin())
         .on_window_event(|window, event| {
@@ -44,12 +53,18 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             add_watch_dir,
+            delete_profile,
+            get_profile,
+            get_profiles,
             get_status,
-            toggle_running,
             list_directories,
             remove_watch_dir,
-            set_launch_on_login,
+            reorder_profiles,
             set_dry_run,
+            set_launch_on_login,
+            set_profile,
+            toggle_profile,
+            toggle_running,
             undo
         ])
         .setup(|app| {
