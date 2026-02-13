@@ -135,14 +135,14 @@ Outputs appear under `apps/menu-bar/src-tauri/target/release/bundle/macos/`:
 Releases are automated via [semantic-release](https://semantic-release.gitbook.io/semantic-release/). Push (or merge) to `main` using [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) messages and the `Release` workflow will:
 
 1. Determine the next semantic version.
-2. Update `package.json`, `apps/menu-bar/package.json`, both lockfiles, the Tauri config, and `CHANGELOG.md`.
+2. Update `package.json`, `apps/menu-bar/package.json`, the Tauri config, and `CHANGELOG.md`.
 3. Build the CLI and the Tauri bundle, packaging unsigned `.app.zip` and `.dmg` artifacts.
 4. Publish a GitHub release with those artifacts and the generated changelog, pushing the version bump + tag back to `main`.
 
 Local dry-run (requires a GitHub token with `repo` scope):
 
 ```bash
-GITHUB_TOKEN=<token> npm run release
+GITHUB_TOKEN=<token> pnpm run release
 ```
 
 ---
