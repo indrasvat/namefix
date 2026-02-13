@@ -1,3 +1,11 @@
+## [0.3.2](https://github.com/indrasvat/namefix/compare/v0.3.1...v0.3.2) (2026-02-13)
+
+
+### Bug Fixes
+
+* **ci:** skip husky hooks in release, ignore Tauri gen schemas ([#20](https://github.com/indrasvat/namefix/issues/20)) ([a113776](https://github.com/indrasvat/namefix/commit/a1137761c8716e615dd98d48f8d9366700e3a0d1))
+* **release:** include Cargo.toml in version stamping ([#19](https://github.com/indrasvat/namefix/issues/19)) ([8c5cc09](https://github.com/indrasvat/namefix/commit/8c5cc09f7fa3a29df4b17144a892a8564ec2d2e9))
+
 ## [0.3.1](https://github.com/indrasvat/namefix/compare/v0.3.0...v0.3.1) (2026-02-13)
 
 
