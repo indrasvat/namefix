@@ -40,18 +40,3 @@ const tauri = JSON.parse(fs.readFileSync(tauriConfigPath, 'utf8'));
 tauri.version = semver;
 fs.writeFileSync(tauriConfigPath, `${JSON.stringify(tauri, null, 2)}\n`);
 console.log('Updated apps/menu-bar/src-tauri/tauri.conf.json');
-
-function updateLock(filePath) {
-	const absolute = path.resolve(filePath);
-	if (!fs.existsSync(absolute)) return;
-	const lock = JSON.parse(fs.readFileSync(absolute, 'utf8'));
-	lock.version = semver;
-	if (lock.packages?.['']) {
-		lock.packages[''].version = semver;
-	}
-	fs.writeFileSync(absolute, `${JSON.stringify(lock, null, 2)}\n`);
-	console.log(`Updated ${filePath}`);
-}
-
-updateLock('package-lock.json');
-updateLock('apps/menu-bar/package-lock.json');

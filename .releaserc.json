@@ -7,7 +7,7 @@
 		[
 			"@semantic-release/exec",
 			{
-				"prepareCmd": "node scripts/set-version.mjs ${nextRelease.version} && npm run build && npm --prefix apps/menu-bar run tauri:build && node scripts/collect-artifacts.mjs"
+				"prepareCmd": "node scripts/set-version.mjs ${nextRelease.version} && pnpm run build && pnpm -C apps/menu-bar run tauri:build && node scripts/collect-artifacts.mjs"
 			}
 		],
 		[
@@ -16,9 +16,7 @@
 				"assets": [
 					"CHANGELOG.md",
 					"package.json",
-					"package-lock.json",
 					"apps/menu-bar/package.json",
-					"apps/menu-bar/package-lock.json",
 					"apps/menu-bar/src-tauri/tauri.conf.json"
 				],
 				"message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
