@@ -6,7 +6,6 @@ mod tray;
 
 use bridge::{init_bridge, BridgeState};
 use tauri::{Manager, RunEvent, WindowEvent};
-use tauri_plugin_autostart::ManagerExt;
 use ipc::{
     add_watch_dir,
     delete_profile,
@@ -23,7 +22,7 @@ use ipc::{
     toggle_running,
     undo,
 };
-use tray::{init_tray, register_status_listener, TrayState};
+use tray::{init_tray, register_status_listener, sync_autostart, TrayState};
 
 #[cfg(target_os = "macos")]
 use tauri::ActivationPolicy;
@@ -46,6 +45,13 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(autostart_plugin())
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            log::info!("Another instance attempted to launch; focusing existing window");
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
@@ -79,31 +85,26 @@ fn main() {
                     let tray_state = init_tray(&app_handle, &bridge)
                         .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
                     register_status_listener(&app_handle);
-                    // Sync autostart with config on startup
-                    let status = tauri::async_runtime::block_on(async {
-                        bridge::get_status(&bridge).await
-                    });
                     app.manage::<BridgeState>(bridge);
                     app.manage::<TrayState>(tray_state);
-                    if let Ok(status) = status {
-                        let manager = app_handle.autolaunch();
-                        let autostart_enabled = manager.is_enabled().unwrap_or(false);
-                        if status.launch_on_login != autostart_enabled {
-                            let result = if status.launch_on_login {
-                                manager.enable()
-                            } else {
-                                manager.disable()
-                            };
-                            match result {
-                                Ok(()) => log::info!("Synced autostart to config: {}", status.launch_on_login),
-                                Err(e) => log::warn!("Failed to sync autostart: {}", e),
-                            }
-                        }
-                    }
 
                     if let Some(window) = app_handle.get_webview_window("main") {
                         let _ = window.hide();
                     }
+
+                    // Fallback startup sync: if the sidecar's initial status
+                    // event fired before the listener was registered, the
+                    // event-driven sync_autostart never runs. Explicitly
+                    // fetch status here to close the race.
+                    let fallback_handle = app_handle.clone();
+                    tauri::async_runtime::spawn(async move {
+                        let bridge_state = fallback_handle.state::<BridgeState>();
+                        match bridge::get_status(bridge_state.inner()).await {
+                            Ok(status) => sync_autostart(&fallback_handle, status.launch_on_login),
+                            Err(e) => log::warn!("Startup autostart sync failed: {}", e),
+                        }
+                    });
+
                     Ok(())
                 }
                 Err(err) => Err(err.into()),

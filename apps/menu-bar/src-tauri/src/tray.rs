@@ -135,7 +135,12 @@ pub fn init_tray(app: &AppHandle<Wry>, bridge: &BridgeState) -> tauri::Result<Tr
                     MENU_LAUNCH_ON_LOGIN => {
                         let tray_state = app_handle.state::<TrayState>().inner().clone();
                         let current = tray_state.status();
-                        bridge::set_launch_on_login(&bridge, !current.launch_on_login).await.map(|_| ())
+                        let desired = !current.launch_on_login;
+                        let res = bridge::set_launch_on_login(&bridge, desired).await.map(|_| ());
+                        if res.is_ok() {
+                            sync_autostart(&app_handle, desired);
+                        }
+                        res
                     }
                     MENU_UNDO => {
                         bridge::undo(&bridge).await.map(|_| ())
@@ -211,6 +216,11 @@ pub fn register_status_listener(app: &AppHandle<Wry>) {
     app.listen_any("service://status", move |event| {
         let payload = event.payload();
         if let Ok(status) = serde_json::from_str::<ServiceStatus>(payload) {
+            // Sync autostart with the config value delivered by the bridge.
+            // This runs on every status event so it catches startup (when the
+            // sidecar finishes loading config) and runtime toggles alike.
+            sync_autostart(&app_handle, status.launch_on_login);
+
             if let Some(tray_state) = app_handle.try_state::<TrayState>() {
                 if let Err(err) = tray_state.apply_status(&app_handle, &status) {
                     log::error!("failed to update tray: {}", err);
@@ -218,6 +228,20 @@ pub fn register_status_listener(app: &AppHandle<Wry>) {
             }
         }
     });
+}
+
+pub(crate) fn sync_autostart(app: &AppHandle<Wry>, desired: bool) {
+    use tauri_plugin_autostart::ManagerExt;
+    let manager = app.autolaunch();
+    let current = manager.is_enabled().unwrap_or(false);
+    if desired == current {
+        return;
+    }
+    let result = if desired { manager.enable() } else { manager.disable() };
+    match result {
+        Ok(()) => log::info!("Synced autostart: {}", desired),
+        Err(e) => log::warn!("Failed to sync autostart: {}", e),
+    }
 }
 
 fn rebuild_directories(app: &AppHandle<Wry>, submenu: &Submenu<Wry>, directories: &[String]) -> tauri::Result<()> {
