@@ -36,3 +36,5 @@ apps/menu-bar/src-tauri/resources/node_modules
 
 # Tauri auto-generated schemas (regenerated on build)
 apps/menu-bar/src-tauri/gen/schemas/
+
+.codemap/
