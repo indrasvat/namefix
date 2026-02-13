@@ -41,7 +41,7 @@ This phase is the final quality gate. It runs the full test suite, performs a re
   - Verify no Rust compilation errors from the updated `bridge.rs` Profile struct
   - ✅ **Completed (skipped)**: Rust toolchain not available (`cargo` not found). Tauri build skipped per instructions. Verified `bridge.rs` Profile struct already includes `action: Option<String>` field (line 318) — no compilation issues expected. Core TypeScript changes are independently verified by the test suite.
 
-- [ ] Final verification — run the full CI pipeline:
+- [x] Final verification — run the full CI pipeline:
   - Run `make ci` (which runs `check + build`)
   - All steps must pass green
   - This is the same pipeline that runs in GitHub Actions — if it passes locally, it will pass in CI
@@ -52,3 +52,39 @@ This phase is the final quality gate. It runs the full test suite, performs a re
     - New types: `ConvertOptions`, `ConvertResult`, `TrashResult`, `ServiceFileEvent` new kinds
     - New services: `ConversionService`, `TrashService`
     - Architecture: no new dependencies, uses macOS built-in `sips` and `osascript`
+  - ✅ **Completed**: `make ci` passed green — fmt, lint, typecheck, 39 tests (7 spec files), and build all succeeded. Full change summary below.
+
+### Change Summary — HEIC Auto-Conversion Feature
+
+**New source files (5):**
+- `src/core/convert/ConversionService.ts` — Image format conversion via macOS `sips`
+- `src/core/convert/TrashService.ts` — Move files to macOS Trash via Finder AppleScript
+- `src/core/convert/ConversionService.spec.ts` — 9 tests for ConversionService
+- `src/core/convert/TrashService.spec.ts` — 4 tests for TrashService
+- `src/core/convert/ConversionPipeline.spec.ts` — 6 integration tests for end-to-end pipeline
+
+**Modified source files (11):**
+- `src/core/NamefixService.ts` — Added ConversionPipeline orchestration, profile-based routing
+- `src/core/NamefixService.spec.ts` — Extended with conversion/trash event tests
+- `src/core/config/ConfigStore.ts` — Default `heic-convert` profile, migration logic
+- `src/core/config/ConfigStore.spec.ts` — Tests for profile migration and defaults
+- `src/core/events/EventBus.ts` — Added `converted`, `convert-error`, `trashed` events
+- `src/core/rename/NameTemplate.ts` — Template variable support for conversion profiles
+- `src/core/App.ts` — Wires conversion events to TUI display
+- `src/tui/components/EventListView.ts` — Renders conversion/trash events with icons
+- `src/types/service.ts` — New `ConvertOptions`, `ConvertResult`, `TrashResult`, event kinds
+- `src/types/index.ts` — Re-exports new types
+- `CLAUDE.md` — Updated architecture docs for new services
+
+**Modified menu bar app files (4):**
+- `apps/menu-bar/src-tauri/src/bridge.rs` — Added `action: Option<String>` to Profile struct
+- `apps/menu-bar/src/main.ts` — Action field handling in profile management
+- `apps/menu-bar/index.html` — Action dropdown in profile editor modal
+- `apps/menu-bar/src-tauri/tauri.conf.json` — Config updates
+
+**Key additions:**
+- New default profile: `heic-convert` (`*.heic` → JPEG, action: `convert`, priority: 50)
+- New types: `ConvertOptions`, `ConvertResult`, `TrashResult`, `ServiceFileEvent` kinds (`converted`, `convert-error`, `trashed`)
+- New services: `ConversionService` (wraps macOS `sips`), `TrashService` (wraps Finder AppleScript)
+- Architecture: zero new npm dependencies — uses macOS built-in `sips` and `osascript`
+- Test count: 11 (baseline) → 39 (final), across 4 → 7 spec files
