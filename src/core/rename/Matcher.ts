@@ -7,8 +7,8 @@ export class Matcher {
 
 	constructor(includes: string[], excludes: string[] = []) {
 		const incGlobs = includes?.length ? includes : ['*'];
-		this.includeMatchers = incGlobs.map((g) => picomatch(g, { dot: false, nocase: false }));
-		this.excludeMatchers = (excludes ?? []).map((g) => picomatch(g, { dot: false, nocase: false }));
+		this.includeMatchers = incGlobs.map((g) => picomatch(g, { dot: false, nocase: true }));
+		this.excludeMatchers = (excludes ?? []).map((g) => picomatch(g, { dot: false, nocase: true }));
 	}
 
 	test(basename: string): boolean {
@@ -48,7 +48,7 @@ export class ProfileMatcher {
 				}
 			} else {
 				// Use glob matching
-				test = picomatch(profile.pattern, { dot: false, nocase: false });
+				test = picomatch(profile.pattern, { dot: false, nocase: true });
 			}
 
 			this.matchers.push({ profile, test });
