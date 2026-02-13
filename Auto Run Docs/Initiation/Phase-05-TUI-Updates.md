@@ -16,7 +16,7 @@ This phase updates the terminal UI layer to display conversion events and expose
       - `'trashed'` → `'gray'` (informational, low-priority)
     - These are display-only changes — the component already receives items via `addItem()` and formats them generically
 
-- [ ] Update `App.ts` to map conversion service events to TUI events:
+- [x] Update `App.ts` to map conversion service events to TUI events:
   - In `src/core/App.ts`, update the `bindServiceEvents()` method's `file` event handler:
     - The handler currently checks for `event.kind === 'preview' || 'applied'` and `'skipped'` / `'error'`
     - Add handling for the new event kinds:
