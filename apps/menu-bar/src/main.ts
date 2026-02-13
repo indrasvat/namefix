@@ -22,6 +22,7 @@ type Profile = {
 	template: string;
 	prefix: string;
 	priority: number;
+	action?: 'rename' | 'convert' | 'rename+convert';
 };
 
 const statusIndicator = document.querySelector<HTMLDivElement>('#status-indicator');
@@ -60,6 +61,7 @@ const profileIsRegexInput = document.querySelector<HTMLInputElement>('#profile-i
 const profileTemplateInput = document.querySelector<HTMLInputElement>('#profile-template');
 const profilePrefixInput = document.querySelector<HTMLInputElement>('#profile-prefix');
 const profilePriorityInput = document.querySelector<HTMLInputElement>('#profile-priority');
+const profileActionSelect = document.querySelector<HTMLSelectElement>('#profile-action');
 const deleteProfileBtn = document.querySelector<HTMLButtonElement>('#delete-profile-btn');
 const modalTitle = document.querySelector<HTMLHeadingElement>('#modal-title');
 const modalCloseBtn = document.querySelector<HTMLButtonElement>('.modal-close');
@@ -493,8 +495,23 @@ function renderProfiles(profiles: Profile[]) {
 
 		const rule = document.createElement('span');
 		rule.className = 'profile-rule';
+
+		if (profile.action && profile.action !== 'rename') {
+			const actionTag = document.createElement('span');
+			actionTag.className = 'action-tag';
+			actionTag.textContent = profile.action;
+			rule.appendChild(actionTag);
+		}
+
 		const patternText = profile.isRegex ? `/${profile.pattern}/` : profile.pattern;
-		rule.innerHTML = `${patternText}<span class="arrow">→</span>${profile.template}`;
+		rule.appendChild(document.createTextNode(patternText));
+
+		const arrow = document.createElement('span');
+		arrow.className = 'arrow';
+		arrow.textContent = '\u2192';
+		rule.appendChild(arrow);
+
+		rule.appendChild(document.createTextNode(profile.template));
 
 		info.append(name, rule);
 
@@ -527,6 +544,7 @@ function openProfileModal(profile?: Profile) {
 	if (profileTemplateInput) profileTemplateInput.value = profile?.template ?? '<prefix>_<datetime>';
 	if (profilePrefixInput) profilePrefixInput.value = profile?.prefix ?? '';
 	if (profilePriorityInput) profilePriorityInput.value = String(profile?.priority ?? 1);
+	if (profileActionSelect) profileActionSelect.value = profile?.action ?? 'rename';
 
 	updatePreview();
 	profileModal.hidden = false;
@@ -539,30 +557,44 @@ function closeProfileModal() {
 function updatePreview() {
 	const prefix = profilePrefixInput?.value ?? '';
 	const template = profileTemplateInput?.value || '<prefix>_<datetime>';
+	const action = (profileActionSelect?.value as Profile['action']) ?? 'rename';
 
-	// Simple preview with sample values
-	const sampleOriginal = 'Screenshot 2024-12-26 at 21.30.00.png';
-	let result = template
-		.replace(/<prefix>/g, prefix.replace(/\s+/g, '_'))
-		.replace(/<date>/g, '2024-12-26')
-		.replace(/<time>/g, '21-30-00')
-		.replace(/<datetime>/g, '2024-12-26_21-30-00')
-		.replace(/<original>/g, 'Screenshot 2024-12-26 at 21.30.00')
-		.replace(/<ext>/g, '.png')
-		.replace(/<counter>/g, '001')
-		.replace(/<year>/g, '2024')
-		.replace(/<month>/g, '12')
-		.replace(/<day>/g, '26')
-		.replace(/<hour>/g, '21')
-		.replace(/<minute>/g, '30')
-		.replace(/<second>/g, '00');
+	const isConvertOnly = action === 'convert';
 
-	// Add extension if template doesn't use <ext>
-	if (!template.includes('<ext>')) {
-		result += '.png';
+	// Use HEIC sample for convert actions to show format change
+	const sampleOriginal = isConvertOnly
+		? 'IMG_1234.heic'
+		: 'Screenshot 2024-12-26 at 21.30.00.png';
+
+	let result: string;
+	if (isConvertOnly) {
+		// Show format conversion only (no rename)
+		result = 'IMG_1234.jpeg';
+	} else {
+		result = template
+			.replace(/<prefix>/g, prefix.replace(/\s+/g, '_'))
+			.replace(/<date>/g, '2024-12-26')
+			.replace(/<time>/g, '21-30-00')
+			.replace(/<datetime>/g, '2024-12-26_21-30-00')
+			.replace(/<original>/g, 'Screenshot 2024-12-26 at 21.30.00')
+			.replace(/<ext>/g, action === 'rename+convert' ? '.jpeg' : '.png')
+			.replace(/<counter>/g, '001')
+			.replace(/<year>/g, '2024')
+			.replace(/<month>/g, '12')
+			.replace(/<day>/g, '26')
+			.replace(/<hour>/g, '21')
+			.replace(/<minute>/g, '30')
+			.replace(/<second>/g, '00');
+
+		// Add extension if template doesn't use <ext>
+		if (!template.includes('<ext>')) {
+			result += action === 'rename+convert' ? '.jpeg' : '.png';
+		}
 	}
 
-	if (previewOriginal) previewOriginal.textContent = sampleOriginal;
+	if (previewOriginal) {
+		previewOriginal.textContent = isConvertOnly ? 'IMG_1234.heic' : sampleOriginal;
+	}
 	if (previewResult) previewResult.textContent = result;
 }
 
@@ -574,6 +606,7 @@ async function saveProfile() {
 	const template = profileTemplateInput?.value.trim();
 	const prefix = profilePrefixInput?.value.trim();
 	const priority = Number.parseInt(profilePriorityInput?.value ?? '1', 10);
+	const action = (profileActionSelect?.value as Profile['action']) ?? 'rename';
 
 	if (!name || !pattern || !template) {
 		showToast('Please fill in all required fields', 'warn');
@@ -589,6 +622,7 @@ async function saveProfile() {
 		template,
 		prefix,
 		priority: Number.isNaN(priority) ? 1 : priority,
+		action: action !== 'rename' ? action : undefined,
 	};
 
 	// Preserve enabled state if editing
@@ -726,6 +760,7 @@ function wireUI() {
 	});
 
 	profilePrefixInput?.addEventListener('input', updatePreview);
+	profileActionSelect?.addEventListener('change', updatePreview);
 
 	// Close modal on backdrop click
 	profileModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeProfileModal);

@@ -49,7 +49,7 @@ This phase updates the Tauri menu bar frontend to expose the new `action` field 
       ```
     - Update the Profiles tab header text from "Rename Profiles" to "Profiles" and subtitle from "Rules that determine how files are renamed" to "Rules that determine how matched files are processed"
 
-- [ ] Update the menu bar TypeScript to handle the `action` field:
+- [x] Update the menu bar TypeScript to handle the `action` field:
   - In `apps/menu-bar/src/main.ts`:
     - Add `action` to the `Profile` type:
       ```typescript
