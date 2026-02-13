@@ -76,12 +76,11 @@ if (!resolvedModuleUrl) {
 }
 
 const emitterUnsubs = [];
-let shuttingDown = false;
 let serviceReady = false;
 let service = null;
 
 function sendMessage(payload) {
-	if (dead || shuttingDown) return;
+	if (dead) return;
 	try {
 		stdout.write(`${JSON.stringify(payload)}\n`);
 	} catch {
@@ -92,13 +91,17 @@ function sendMessage(payload) {
 function forwardEvents() {
 	emitterUnsubs.push(
 		service.on('status', (status) => {
-			safeStderr(`[EVENT] status: running=${status.running}, dirs=${status.directories?.length ?? 0}, dryRun=${status.dryRun}`);
+			safeStderr(
+				`[EVENT] status: running=${status.running}, dirs=${status.directories?.length ?? 0}, dryRun=${status.dryRun}`,
+			);
 			sendMessage({ event: 'status', payload: status });
 		}),
 	);
 	emitterUnsubs.push(
 		service.on('file', (event) => {
-			safeStderr(`[EVENT] file: ${event.kind} ${event.file ?? '?'}${event.target ? ` → ${event.target}` : ''}${event.message ? ` (${event.message})` : ''}`);
+			safeStderr(
+				`[EVENT] file: ${event.kind} ${event.file ?? '?'}${event.target ? ` → ${event.target}` : ''}${event.message ? ` (${event.message})` : ''}`,
+			);
 			sendMessage({ event: 'file', payload: event });
 		}),
 	);
@@ -250,7 +253,6 @@ const handlers = {
 	},
 
 	async shutdown() {
-		shuttingDown = true;
 		for (const off of emitterUnsubs.splice(0)) {
 			try {
 				off();

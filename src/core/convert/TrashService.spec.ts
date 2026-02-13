@@ -5,6 +5,8 @@ vi.mock('node:fs/promises', () => ({
 	default: {
 		access: vi.fn(),
 		rename: vi.fn(),
+		copyFile: vi.fn(),
+		unlink: vi.fn(),
 	},
 }));
 
@@ -16,6 +18,8 @@ import fs from 'node:fs/promises';
 
 const mockAccess = vi.mocked(fs.access);
 const mockRename = vi.mocked(fs.rename);
+const mockCopyFile = vi.mocked(fs.copyFile);
+const mockUnlink = vi.mocked(fs.unlink);
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -49,10 +53,7 @@ describe('TrashService', () => {
 		it('renames file to ~/.Trash/', async () => {
 			await svc.moveToTrash('/tmp/photo.heic');
 
-			expect(mockRename).toHaveBeenCalledWith(
-				'/tmp/photo.heic',
-				'/Users/test/.Trash/photo.heic',
-			);
+			expect(mockRename).toHaveBeenCalledWith('/tmp/photo.heic', '/Users/test/.Trash/photo.heic');
 		});
 
 		it('returns failure with error when rename fails', async () => {
@@ -62,6 +63,23 @@ describe('TrashService', () => {
 
 			expect(result.success).toBe(false);
 			expect(result.error).toContain('operation not permitted');
+		});
+
+		it('falls back to copy+unlink on EXDEV (cross-volume)', async () => {
+			mockRename.mockRejectedValue(
+				Object.assign(new Error('EXDEV: cross-device link not permitted'), { code: 'EXDEV' }),
+			);
+			mockCopyFile.mockResolvedValue(undefined);
+			mockUnlink.mockResolvedValue(undefined);
+
+			const result = await svc.moveToTrash('/Volumes/ext/photo.heic');
+
+			expect(result.success).toBe(true);
+			expect(mockCopyFile).toHaveBeenCalledWith(
+				'/Volumes/ext/photo.heic',
+				'/Users/test/.Trash/photo.heic',
+			);
+			expect(mockUnlink).toHaveBeenCalledWith('/Volumes/ext/photo.heic');
 		});
 
 		it('throws error when file does not exist', async () => {

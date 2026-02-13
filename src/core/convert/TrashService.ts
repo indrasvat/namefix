@@ -26,13 +26,27 @@ export class TrashService {
 				n++;
 			}
 
-			await fs.rename(filePath, dest);
+			try {
+				await fs.rename(filePath, dest);
+			} catch (renameErr: unknown) {
+				// fs.rename fails across filesystems (e.g. external volumes); fall back to copy + delete
+				if (isExdev(renameErr)) {
+					await fs.copyFile(filePath, dest);
+					await fs.unlink(filePath);
+				} else {
+					throw renameErr;
+				}
+			}
 			return { srcPath: filePath, success: true };
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Unknown error moving file to Trash';
 			return { srcPath: filePath, success: false, error: message };
 		}
 	}
+}
+
+function isExdev(err: unknown): boolean {
+	return err instanceof Error && (err as NodeJS.ErrnoException).code === 'EXDEV';
 }
 
 async function fileExists(p: string): Promise<boolean> {

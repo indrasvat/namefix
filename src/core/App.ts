@@ -27,12 +27,12 @@ export class NamefixApp {
 		this.ui = new ScreenManager();
 		this.ui.showToast('Starting...', 'info');
 
-		// 2. Register keybindings NOW so user can interact immediately
-		this.registerKeybindings();
-
-		// 3. Init config (fast disk I/O, typically <50ms)
+		// 2. Init config (fast disk I/O, typically <50ms)
 		const cfg = await this.service.init(overrides);
 		this.currentConfig = cfg;
+
+		// 3. Register keybindings after config is ready (handlers depend on config)
+		this.registerKeybindings();
 
 		// 4. Apply config to UI
 		if (cfg.theme) {
