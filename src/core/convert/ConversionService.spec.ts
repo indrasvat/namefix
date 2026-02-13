@@ -20,21 +20,17 @@ const mockAccess = vi.mocked(fs.access);
 type Cb = (...a: unknown[]) => any;
 
 function mockExecFileSuccess() {
-	mockExecFile.mockImplementation(
-		(_cmd: unknown, _args: unknown, cb: unknown) => {
-			(cb as Cb)(null, { stdout: '', stderr: '' });
-			return undefined as unknown as ReturnType<typeof execFileCb>;
-		},
-	);
+	mockExecFile.mockImplementation((_cmd: unknown, _args: unknown, cb: unknown) => {
+		(cb as Cb)(null, { stdout: '', stderr: '' });
+		return undefined as unknown as ReturnType<typeof execFileCb>;
+	});
 }
 
 function mockExecFileFailure(message: string, extra?: Record<string, unknown>) {
-	mockExecFile.mockImplementation(
-		(_cmd: unknown, _args: unknown, cb: unknown) => {
-			(cb as Cb)(Object.assign(new Error(message), extra));
-			return undefined as unknown as ReturnType<typeof execFileCb>;
-		},
-	);
+	mockExecFile.mockImplementation((_cmd: unknown, _args: unknown, cb: unknown) => {
+		(cb as Cb)(Object.assign(new Error(message), extra));
+		return undefined as unknown as ReturnType<typeof execFileCb>;
+	});
 }
 
 beforeEach(() => {
@@ -136,9 +132,9 @@ describe('ConversionService', () => {
 				code: 1,
 			});
 
-			await expect(
-				svc.convert('/tmp/photo.heic', { outputFormat: 'jpeg' }),
-			).rejects.toThrow('sips failed');
+			await expect(svc.convert('/tmp/photo.heic', { outputFormat: 'jpeg' })).rejects.toThrow(
+				'sips failed',
+			);
 		});
 
 		it('appends _2 suffix when output path already exists', async () => {

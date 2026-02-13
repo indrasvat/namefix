@@ -64,7 +64,8 @@ This phase ensures the new conversion events flow correctly through the entire E
     - Trigger watch event for `IMG_1234.heic`
     - Verify conversion happens first, then the converted file is renamed per template
 
-- [ ] Run all tests and verify the full suite:
+- [x] Run all tests and verify the full suite:
   - Run `pnpm test -- src/core/convert/ConversionPipeline.spec.ts` to run the new integration tests
   - Run `make test` to verify all existing and new tests pass together
   - Run `make check` for the full quality pipeline (fmt + lint + typecheck + test)
+  - **Verified**: All 7 test files, 38 tests pass. Full `make check` pipeline (fmt + lint + typecheck + test) passes cleanly.

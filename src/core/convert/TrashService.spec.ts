@@ -20,21 +20,17 @@ const mockAccess = vi.mocked(fs.access);
 type Cb = (...a: unknown[]) => any;
 
 function mockExecFileSuccess() {
-	mockExecFile.mockImplementation(
-		(_cmd: unknown, _args: unknown, cb: unknown) => {
-			(cb as Cb)(null, { stdout: '', stderr: '' });
-			return undefined as unknown as ReturnType<typeof execFileCb>;
-		},
-	);
+	mockExecFile.mockImplementation((_cmd: unknown, _args: unknown, cb: unknown) => {
+		(cb as Cb)(null, { stdout: '', stderr: '' });
+		return undefined as unknown as ReturnType<typeof execFileCb>;
+	});
 }
 
 function mockExecFileFailure(message: string) {
-	mockExecFile.mockImplementation(
-		(_cmd: unknown, _args: unknown, cb: unknown) => {
-			(cb as Cb)(new Error(message));
-			return undefined as unknown as ReturnType<typeof execFileCb>;
-		},
-	);
+	mockExecFile.mockImplementation((_cmd: unknown, _args: unknown, cb: unknown) => {
+		(cb as Cb)(new Error(message));
+		return undefined as unknown as ReturnType<typeof execFileCb>;
+	});
 }
 
 beforeEach(() => {

@@ -21,8 +21,7 @@ export class TrashService {
 			]);
 			return { srcPath: filePath, success: true };
 		} catch (err) {
-			const message =
-				err instanceof Error ? err.message : 'Unknown error moving file to Trash';
+			const message = err instanceof Error ? err.message : 'Unknown error moving file to Trash';
 			return { srcPath: filePath, success: false, error: message };
 		}
 	}
