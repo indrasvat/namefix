@@ -34,11 +34,12 @@ This phase is the final quality gate. It runs the full test suite, performs a re
     - If the config already existed from Phase 01, the new default profile should have been added via the migration logic
   - ✅ **Completed**: `make build` succeeded. CLI loads (`--help` works). Fixed `migrateToProfiles` to add `ensureDefaultProfiles` — existing configs missing `heic-convert` now get it merged in automatically. Config verified with `"id": "heic-convert"`, `"action": "convert"`, `"pattern": "*.heic"`. New test added, all 39 tests pass across 7 spec files.
 
-- [ ] Build the menu bar app (if the Tauri toolchain is available):
+- [x] Build the menu bar app (if the Tauri toolchain is available):
   - Check if Cargo and Tauri CLI are available: `which cargo` and verify the Tauri project compiles
   - If available: run `make build-app` to build the full macOS menu bar app
   - If NOT available (missing Rust toolchain): skip this step — the core TypeScript changes are independently verified by the test suite, and the Tauri build can be done separately
   - Verify no Rust compilation errors from the updated `bridge.rs` Profile struct
+  - ✅ **Completed (skipped)**: Rust toolchain not available (`cargo` not found). Tauri build skipped per instructions. Verified `bridge.rs` Profile struct already includes `action: Option<String>` field (line 318) — no compilation issues expected. Core TypeScript changes are independently verified by the test suite.
 
 - [ ] Final verification — run the full CI pipeline:
   - Run `make ci` (which runs `check + build`)
