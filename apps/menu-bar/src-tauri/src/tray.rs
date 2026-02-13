@@ -23,6 +23,7 @@ const MENU_DIRECTORIES: &str = "directories";
 
 fn get_version_string() -> String {
     let version = env!("CARGO_PKG_VERSION");
+    let sha = env!("GIT_SHORT_SHA");
     let build_type = if cfg!(debug_assertions) {
         "debug"
     } else if option_env!("NAMEFIX_OFFICIAL_BUILD").is_some() {
@@ -30,7 +31,7 @@ fn get_version_string() -> String {
     } else {
         "local"
     };
-    format!("v{} ({})", version, build_type)
+    format!("v{} ({}, {})", version, build_type, sha)
 }
 
 #[derive(Clone)]
@@ -81,7 +82,7 @@ pub fn init_tray(app: &AppHandle<Wry>, bridge: &BridgeState) -> tauri::Result<Tr
     status_item.set_enabled(false)?;
 
     let toggle_running = MenuItem::with_id(app, MENU_TOGGLE_RUNNING, "Start Watching", true, None::<&str>)?;
-    let dry_run = CheckMenuItem::with_id(app, MENU_TOGGLE_DRY_RUN, "Dry Run", true, true, None::<&str>)?;
+    let dry_run = CheckMenuItem::with_id(app, MENU_TOGGLE_DRY_RUN, "Dry Run", true, false, None::<&str>)?;
     let launch_on_login = CheckMenuItem::with_id(app, MENU_LAUNCH_ON_LOGIN, "Launch on Login", true, false, None::<&str>)?;
     let undo = MenuItem::with_id(app, MENU_UNDO, "Undo Last Rename", true, None::<&str>)?;
     let open_main = MenuItem::with_id(app, MENU_OPEN_MAIN, "Preferences...", true, None::<&str>)?;
@@ -187,7 +188,7 @@ pub fn init_tray(app: &AppHandle<Wry>, bridge: &BridgeState) -> tauri::Result<Tr
         .build(app)?;
 
     let initial_status = async_runtime::block_on(bridge::get_status(bridge))
-        .unwrap_or(ServiceStatus { running: false, directories: vec![], dry_run: true, launch_on_login: false });
+        .unwrap_or(ServiceStatus { running: false, directories: vec![], dry_run: false, launch_on_login: false });
 
     let tray_state = TrayState {
         tray: tray_icon,

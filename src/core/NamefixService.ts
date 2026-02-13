@@ -1,4 +1,5 @@
 import path from 'node:path';
+import os from 'node:os';
 import fs from 'node:fs/promises';
 import type {
 	IConfig,
@@ -859,7 +860,11 @@ export class NamefixService {
 	}
 
 	private normalizePath(dir: string): string {
-		return path.resolve(dir.trim());
+		let d = dir.trim();
+		if (d.startsWith('~/') || d === '~') {
+			d = path.join(os.homedir(), d.slice(1));
+		}
+		return path.resolve(d);
 	}
 
 	// Health monitoring methods

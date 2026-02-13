@@ -8,7 +8,7 @@ export class WatchService implements IWatchService {
 	private watcher: chokidar.FSWatcher | null = null;
 	private healthy = false;
 	private errorHandlers = new Set<WatchServiceErrorHandler>();
-	private static readonly INIT_TIMEOUT_MS = 10_000;
+	private static readonly INIT_TIMEOUT_MS = 60_000;
 
 	constructor(
 		private readonly dir: string,

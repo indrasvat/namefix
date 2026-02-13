@@ -5,12 +5,23 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { access } from 'node:fs/promises';
 
+let dead = false;
+
+function safeStderr(msg) {
+	if (dead) return;
+	try {
+		stderr.write(`${new Date().toISOString()} [bridge] ${msg}\n`);
+	} catch {
+		// stderr gone — nothing we can do
+	}
+}
+
 function logToStderr(level) {
 	return (...args) => {
 		const message = args
 			.map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg)))
 			.join(' ');
-		stderr.write(`${new Date().toISOString()} [${level}] ${message}\n`);
+		safeStderr(`[${level}] ${message}`);
 	};
 }
 
@@ -18,21 +29,27 @@ console.log = logToStderr('LOG');
 console.warn = logToStderr('WARN');
 console.error = logToStderr('ERROR');
 
-stdout.on('error', (err) => {
-	if (
-		typeof err === 'object' &&
-		err !== null &&
-		'code' in err &&
-		(err.code === 'EPIPE' || err.code === 'ERR_STREAM_WRITE_AFTER_END')
-	) {
-		exit(0);
-		return;
-	}
-	throw err;
+function die(reason) {
+	if (dead) return;
+	dead = true;
+	safeStderr(`FATAL: ${reason}`);
+	exit(0);
+}
+
+// Catch everything that could kill the process
+process.on('uncaughtException', (err) => {
+	die(`uncaughtException: ${err?.stack ?? err?.message ?? err}`);
+});
+process.on('unhandledRejection', (reason) => {
+	die(`unhandledRejection: ${reason instanceof Error ? reason.stack : reason}`);
 });
 
-function logDebug(message, extra = {}) {
-	stderr.write(`${new Date().toISOString()} service-bridge ${message} ${JSON.stringify(extra)}\n`);
+stdout.on('error', () => die('stdout pipe error'));
+stdin.on('error', () => die('stdin pipe error'));
+stdin.on('end', () => die('stdin EOF (parent exited)'));
+
+for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) {
+	process.on(sig, () => die(`signal ${sig}`));
 }
 
 const distCandidates = [
@@ -42,14 +59,12 @@ const distCandidates = [
 ];
 
 let resolvedModuleUrl;
-let resolvedPath;
 for (const candidate of distCandidates) {
 	const candidateUrl = new URL(candidate, import.meta.url);
 	const candidatePath = fileURLToPath(candidateUrl);
 	try {
 		await access(candidatePath);
 		resolvedModuleUrl = candidateUrl;
-		resolvedPath = candidatePath;
 		break;
 	} catch {
 		// try the next candidate
@@ -57,8 +72,7 @@ for (const candidate of distCandidates) {
 }
 
 if (!resolvedModuleUrl) {
-	stderr.write(`Namefix build artifacts not found. Checked: ${distCandidates.join(', ')}\n`);
-	exit(1);
+	die(`build artifacts not found: ${distCandidates.join(', ')}`);
 }
 
 const { NamefixService } = await import(resolvedModuleUrl);
@@ -68,10 +82,15 @@ await service.init();
 await service.start();
 
 const emitterUnsubs = [];
-const SHUTDOWN_DELAY_MS = 100; // allow stdout flush before exiting the sidecar
+let shuttingDown = false;
 
 function sendMessage(payload) {
-	stdout.write(`${JSON.stringify(payload)}\n`);
+	if (dead || shuttingDown) return;
+	try {
+		stdout.write(`${JSON.stringify(payload)}\n`);
+	} catch {
+		// Don't die here — the stdout 'error' event handler will handle it
+	}
 }
 
 function forwardEvents() {
@@ -88,8 +107,6 @@ function forwardEvents() {
 }
 
 forwardEvents();
-
-let requestId = 0;
 
 const handlers = {
 	async getStatus() {
@@ -186,6 +203,7 @@ const handlers = {
 	},
 
 	async shutdown() {
+		shuttingDown = true;
 		for (const off of emitterUnsubs.splice(0)) {
 			try {
 				off();
@@ -195,7 +213,7 @@ const handlers = {
 		}
 		await service.stop();
 		sendMessage({ event: 'shutdown', payload: {} });
-		setTimeout(() => exit(0), SHUTDOWN_DELAY_MS);
+		setTimeout(() => exit(0), 100);
 		return true;
 	},
 };
@@ -203,14 +221,14 @@ const handlers = {
 const rl = createInterface({ input: stdin, crlfDelay: Number.POSITIVE_INFINITY });
 
 for await (const line of rl) {
+	if (dead) break;
 	const trimmed = line.trim();
 	if (!trimmed) continue;
-	requestId += 1;
 	let payload;
 	try {
 		payload = JSON.parse(trimmed);
 	} catch (err) {
-		logDebug('failed to parse input', { trimmed });
+		safeStderr(`bad JSON input: ${trimmed}`);
 		sendMessage({ error: 'invalid_json', detail: String(err) });
 		continue;
 	}
