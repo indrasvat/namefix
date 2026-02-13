@@ -11,7 +11,12 @@
 		}
 	},
 	"files": {
-		"ignore": ["apps/menu-bar/dist/**", "apps/menu-bar/src-tauri/target/**", "dist/**"]
+		"ignore": [
+			"apps/menu-bar/dist/**",
+			"apps/menu-bar/src-tauri/target/**",
+			"dist/**",
+			".codemap/**"
+		]
 	},
 	"javascript": {
 		"formatter": {
