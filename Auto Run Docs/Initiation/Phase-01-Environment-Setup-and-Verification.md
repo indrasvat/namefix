@@ -11,10 +11,11 @@ This phase ensures the development environment is fully operational before any f
   - Run `make typecheck` to confirm no type errors in the current codebase
   > **Completed**: pnpm install added 358 packages, `make build` compiled successfully, `dist/core/NamefixService.js` confirmed present, `make typecheck` passed with zero errors. Note: Node v24.13.0 is above the engine range (>=20 <23) — runs fine but emits a WARN.
 
-- [ ] Run the existing test suite to establish a green baseline:
+- [x] Run the existing test suite to establish a green baseline:
   - Run `make test` and verify all tests pass
   - Note the current test count for later comparison (specs: `ConfigStore.spec.ts`, `NamefixService.spec.ts`, `RenameService.spec.ts`, `paths.spec.ts`)
   - If any tests fail, investigate and fix before proceeding (the codebase should be in a clean state on `main`)
+  > **Completed**: All 11 tests pass across 4 spec files — `paths.spec.ts` (2), `RenameService.spec.ts` (2), `ConfigStore.spec.ts` (3), `NamefixService.spec.ts` (4). Vitest v2.1.9, total duration 765ms. Green baseline established.
 
 - [ ] Launch the CLI binary to trigger macOS permission prompts:
   - Run `node bin/namefix.js --help` to verify the binary loads without errors
