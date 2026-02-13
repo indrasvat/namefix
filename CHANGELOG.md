@@ -1,3 +1,10 @@
+# [0.3.0](https://github.com/indrasvat/namefix/compare/v0.2.7...v0.3.0) (2026-02-13)
+
+
+### Features
+
+* multiple rename profiles with customizable templates ([#15](https://github.com/indrasvat/namefix/issues/15)) ([b08f280](https://github.com/indrasvat/namefix/commit/b08f2803acd4fda0264918e306465327b7344b06))
+
 ## [0.2.7](https://github.com/indrasvat/namefix/compare/v0.2.6...v0.2.7) (2025-12-04)
 
 
