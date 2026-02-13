@@ -51,7 +51,7 @@ This phase updates the terminal UI layer to display conversion events and expose
     - The existing keybinding hints (`d` for dry-run, `u` for undo, `s` for settings) remain unchanged
     - No new keybindings are needed for conversion — it's automatic based on profile config
 
-- [ ] Run tests and quality checks:
+- [x] Run tests and quality checks:
   - Run `make test` — all tests must pass
   - Run `make typecheck` — the new event kind types must compile cleanly
   - Run `make check` for the full quality pipeline
