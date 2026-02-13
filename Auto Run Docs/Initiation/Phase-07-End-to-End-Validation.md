@@ -24,7 +24,7 @@ This phase is the final quality gate. It runs the full test suite, performs a re
   - Clean up: `rm -rf /tmp/namefix-smoke-test`
   - ✅ **Completed**: `sips` confirmed at `/usr/bin/sips`. PNG→JPEG proxy conversion succeeded (931 bytes valid JPEG output). No real HEIC files found on disk. Temp directory cleaned up.
 
-- [ ] Build the CLI and verify the new default profile appears:
+- [x] Build the CLI and verify the new default profile appears:
   - Run `make build` to compile the TypeScript core
   - Run `node bin/namefix.js --help` to verify the CLI still loads
   - Temporarily start the service to verify the HEIC conversion profile is in the default config:
@@ -32,6 +32,7 @@ This phase is the final quality gate. It runs the full test suite, performs a re
     - Check the config file at `~/Library/Application Support/namefix/config.json`
     - Verify it contains a profile with `"id": "heic-convert"` and `"action": "convert"` and `"pattern": "*.heic"`
     - If the config already existed from Phase 01, the new default profile should have been added via the migration logic
+  - ✅ **Completed**: `make build` succeeded. CLI loads (`--help` works). Fixed `migrateToProfiles` to add `ensureDefaultProfiles` — existing configs missing `heic-convert` now get it merged in automatically. Config verified with `"id": "heic-convert"`, `"action": "convert"`, `"pattern": "*.heic"`. New test added, all 39 tests pass across 7 spec files.
 
 - [ ] Build the menu bar app (if the Tauri toolchain is available):
   - Check if Cargo and Tauri CLI are available: `which cargo` and verify the Tauri project compiles

@@ -47,13 +47,24 @@ function isProfileArray(v: unknown): v is IProfile[] {
 }
 
 /**
+ * Ensure all DEFAULT_PROFILES exist in an existing profiles array.
+ * Adds any missing defaults (matched by id) without disturbing user profiles.
+ */
+function ensureDefaultProfiles(profiles: IProfile[]): IProfile[] {
+	const existingIds = new Set(profiles.map((p) => p.id));
+	const missing = DEFAULT_PROFILES.filter((dp) => !existingIds.has(dp.id));
+	if (missing.length === 0) return profiles;
+	return [...missing, ...profiles];
+}
+
+/**
  * Migrate legacy config (prefix/include/exclude) to profiles array.
  * Only runs if profiles array is empty or missing.
  */
 function migrateToProfiles(input: Partial<IConfig>): IProfile[] {
-	// If profiles already exist and are valid, use them
+	// If profiles already exist and are valid, ensure new defaults are merged in
 	if (isProfileArray(input.profiles) && input.profiles.length > 0) {
-		return input.profiles;
+		return ensureDefaultProfiles(input.profiles);
 	}
 
 	// Check if we have legacy config to migrate

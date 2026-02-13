@@ -87,9 +87,14 @@ describe('ConfigStore', () => {
 
 		const store = new ConfigStore();
 		const cfg = await store.get();
-		expect(cfg.profiles).toHaveLength(1);
-		expect(cfg.profiles[0]?.action).toBeUndefined();
-		expect(cfg.profiles[0]?.id).toBe('screenshots');
+		// The saved profile plus missing defaults (heic-convert, screen-recordings) are merged in
+		const screenshots = cfg.profiles.find((p) => p.id === 'screenshots');
+		expect(screenshots).toBeDefined();
+		expect(screenshots?.action).toBeUndefined();
+		// Default profiles that were missing should be added
+		const heic = cfg.profiles.find((p) => p.id === 'heic-convert');
+		expect(heic).toBeDefined();
+		expect(heic?.action).toBe('convert');
 	});
 
 	it('accepts profiles with valid action values', async () => {
@@ -149,10 +154,59 @@ describe('ConfigStore', () => {
 
 		const store = new ConfigStore();
 		const cfg = await store.get();
-		expect(cfg.profiles).toHaveLength(3);
-		expect(cfg.profiles[0]?.action).toBe('rename');
-		expect(cfg.profiles[1]?.action).toBe('convert');
-		expect(cfg.profiles[2]?.action).toBe('rename+convert');
+		// 3 saved + missing defaults merged in
+		const p1 = cfg.profiles.find((p) => p.id === 'p1');
+		const p2 = cfg.profiles.find((p) => p.id === 'p2');
+		const p3 = cfg.profiles.find((p) => p.id === 'p3');
+		expect(p1?.action).toBe('rename');
+		expect(p2?.action).toBe('convert');
+		expect(p3?.action).toBe('rename+convert');
+	});
+
+	it('adds missing default profiles to existing configs', async () => {
+		const configHome = process.env.NAMEFIX_HOME;
+		if (!configHome) throw new Error('NAMEFIX_HOME should be defined');
+		await fs.mkdir(configHome, { recursive: true });
+		// Config with only screenshots — missing heic-convert and screen-recordings
+		const oldConfig = {
+			watchDir: path.join(tempRoot, 'watch'),
+			watchDirs: [path.join(tempRoot, 'watch')],
+			prefix: 'Screenshot',
+			include: ['Screenshot*'],
+			exclude: [],
+			dryRun: true,
+			theme: 'default',
+			launchOnLogin: false,
+			profiles: [
+				{
+					id: 'screenshots',
+					name: 'Screenshots',
+					enabled: true,
+					pattern: 'Screenshot*',
+					isRegex: false,
+					template: '<prefix>_<datetime>',
+					prefix: 'Screenshot',
+					priority: 1,
+				},
+			],
+		};
+		await fs.writeFile(
+			path.join(configHome, 'config.json'),
+			JSON.stringify(oldConfig, null, 2),
+			'utf8',
+		);
+
+		const store = new ConfigStore();
+		const cfg = await store.get();
+		// Original profile preserved
+		expect(cfg.profiles.find((p) => p.id === 'screenshots')).toBeDefined();
+		// Missing defaults added
+		expect(cfg.profiles.find((p) => p.id === 'heic-convert')).toBeDefined();
+		expect(cfg.profiles.find((p) => p.id === 'screen-recordings')).toBeDefined();
+		// heic-convert appears before user profiles (prepended)
+		const heicIdx = cfg.profiles.findIndex((p) => p.id === 'heic-convert');
+		const screenshotsIdx = cfg.profiles.findIndex((p) => p.id === 'screenshots');
+		expect(heicIdx).toBeLessThan(screenshotsIdx);
 	});
 
 	it('includes heic-convert default profile in fresh configs', async () => {
