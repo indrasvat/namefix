@@ -1,3 +1,10 @@
+## [0.3.4](https://github.com/indrasvat/namefix/compare/v0.3.3...v0.3.4) (2026-02-13)
+
+
+### Bug Fixes
+
+* **menu-bar:** wire autostart plugin into launch-on-login ([#22](https://github.com/indrasvat/namefix/issues/22)) ([b5bab3e](https://github.com/indrasvat/namefix/commit/b5bab3eaa9ad7354a4bf073f96d8028e92653058))
+
 ## [0.3.3](https://github.com/indrasvat/namefix/compare/v0.3.2...v0.3.3) (2026-02-13)
 
 
