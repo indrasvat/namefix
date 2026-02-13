@@ -38,3 +38,5 @@ apps/menu-bar/src-tauri/resources/node_modules
 apps/menu-bar/src-tauri/gen/schemas/
 
 .codemap/
+.claude/
+screenshots/
