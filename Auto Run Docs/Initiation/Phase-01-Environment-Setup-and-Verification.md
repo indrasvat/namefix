@@ -17,11 +17,12 @@ This phase ensures the development environment is fully operational before any f
   - If any tests fail, investigate and fix before proceeding (the codebase should be in a clean state on `main`)
   > **Completed**: All 11 tests pass across 4 spec files — `paths.spec.ts` (2), `RenameService.spec.ts` (2), `ConfigStore.spec.ts` (3), `NamefixService.spec.ts` (4). Vitest v2.1.9, total duration 765ms. Green baseline established.
 
-- [ ] Launch the CLI binary to trigger macOS permission prompts:
+- [x] Launch the CLI binary to trigger macOS permission prompts:
   - Run `node bin/namefix.js --help` to verify the binary loads without errors
   - Run `node bin/namefix.js --dry-run --watch-dir ~/Downloads` in the background for ~5 seconds to trigger any macOS file access permission dialogs, then kill the process
   - This step is critical: macOS will prompt for access to `~/Downloads` (and potentially other directories) — getting this out of the way now prevents permission dialogs from blocking automated execution in later phases
   - Verify the config directory was created at `~/Library/Application Support/namefix/`
+  > **Completed**: `--help` output confirmed (all options listed, no errors). CLI ran in dry-run mode watching `~/Downloads` for 5 seconds — TUI initialized successfully and process was cleanly terminated. Config directory confirmed at `~/Library/Application Support/namefix/config.json` (795 bytes) with default profiles (Screenshots, Screen Recordings) and watch directories (Downloads, Desktop).
 
 - [ ] Run the full quality check to confirm everything is clean:
   - Run `make check` (which runs `fmt + lint + typecheck + test`)
