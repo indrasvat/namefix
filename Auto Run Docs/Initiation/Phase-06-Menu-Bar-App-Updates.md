@@ -77,11 +77,12 @@ This phase updates the Tauri menu bar frontend to expose the new `action` field 
       ```
     - Update `updatePreview()` to show conversion preview when action is `'convert'` — the preview should show the format change (e.g., `IMG_1234.heic → IMG_1234.jpeg`) instead of renaming
 
-- [ ] Update the Tauri frontend to display conversion file events:
+- [x] Update the Tauri frontend to display conversion file events:
   - The frontend currently listens for `service://file` events but doesn't render them in a log (the TUI has EventListView, the menu bar doesn't currently have an event log)
   - No changes needed here unless there is already a file event display section — verify by checking the HTML
   - The toast system already handles `service://toast` events which will show conversion success/failure messages
   - If there IS a file event section, add styling for `converted` (cyan accent), `convert-error` (red), and `trashed` (gray) event kinds
+  - **Verified**: No file event display section exists in `index.html`. The `main.ts` does not listen for `service://file` events. The toast system (`service://toast` listener at bootstrap) already handles conversion success/failure messages. No code changes needed.
 
 - [ ] Run quality checks on the menu bar app:
   - Run `make typecheck` — verify no TS errors in the menu bar source
