@@ -45,7 +45,7 @@ This phase updates the terminal UI layer to display conversion events and expose
       ```
     - This maintains the existing pattern: `App.ts` maps service events to UI events, no business logic
 
-- [ ] Update `FooterView` to show conversion action hint:
+- [x] Update `FooterView` to show conversion action hint:
   - In `src/tui/components/FooterView.ts`:
     - If there isn't already a key hint line, no changes needed — the footer shows keybindings
     - The existing keybinding hints (`d` for dry-run, `u` for undo, `s` for settings) remain unchanged
