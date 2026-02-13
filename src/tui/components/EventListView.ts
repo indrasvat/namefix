@@ -6,7 +6,7 @@ export type UiEventItem = {
 	when: string;
 	file: string;
 	target?: string;
-	status: 'preview' | 'applied' | 'skipped' | 'error';
+	status: 'preview' | 'applied' | 'skipped' | 'error' | 'converted' | 'convert-error' | 'trashed';
 	message?: string;
 };
 
@@ -56,11 +56,13 @@ export class EventListView extends BaseView {
 		const color =
 			e.status === 'applied'
 				? 'green'
-				: e.status === 'preview'
-					? 'yellow'
-					: e.status === 'skipped'
-						? 'gray'
-						: 'red';
+				: e.status === 'converted'
+					? 'cyan'
+					: e.status === 'preview'
+						? 'yellow'
+						: e.status === 'skipped' || e.status === 'trashed'
+							? 'gray'
+							: 'red';
 		const status = `{${color}-fg}${e.status.toUpperCase()}{/${color}-fg}`;
 		const tgt = e.target ? ` → ${e.target}` : '';
 		return `${e.when}  ${status}  ${e.file}${tgt}`;

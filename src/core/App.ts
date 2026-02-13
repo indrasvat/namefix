@@ -59,19 +59,32 @@ export class NamefixApp {
 			this.service.on('file', (event) => {
 				const when = new Date(event.timestamp).toLocaleTimeString();
 				const directoryHint = event.directory ? ` (${path.basename(event.directory)})` : '';
-				if (event.kind === 'preview' || event.kind === 'applied' || event.kind === 'converted') {
+				if (event.kind === 'preview' || event.kind === 'applied') {
 					ui.addEvent({
 						when,
 						file: `${event.file}${directoryHint}`,
 						target: event.target,
-						status: event.kind === 'converted' ? 'applied' : event.kind,
+						status: event.kind,
+					});
+				} else if (event.kind === 'converted') {
+					ui.addEvent({
+						when,
+						file: `${event.file}${directoryHint}`,
+						target: event.target,
+						status: 'converted',
+					});
+				} else if (event.kind === 'convert-error') {
+					ui.addEvent({
+						when,
+						file: `${event.file}${directoryHint}`,
+						status: 'convert-error',
+						message: event.message,
 					});
 				} else if (event.kind === 'trashed') {
 					ui.addEvent({
 						when,
 						file: `${event.file}${directoryHint}`,
-						status: 'applied',
-						message: 'moved to Trash',
+						status: 'trashed',
 					});
 				} else {
 					ui.addEvent({
