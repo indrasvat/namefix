@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { cp, rm, symlink, mkdir } from 'node:fs/promises';
+import { cp, rm, symlink, mkdir, readdir, realpath } from 'node:fs/promises';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +32,37 @@ if (!fs.existsSync(nodeModulesSource)) {
 	process.exit(1);
 }
 
+/**
+ * Copy production dependencies from node_modules into the staged directory.
+ * pnpm uses symlinks for top-level packages (e.g. picomatch -> .pnpm/picomatch@.../...).
+ * Tauri's resource bundler skips symlinks, so we resolve each dependency to its
+ * real path and copy the actual files. Only production deps are needed — the
+ * menu bar bridge only imports from the core service layer.
+ */
+async function stageNodeModules() {
+	await rm(stagedModules, { recursive: true, force: true });
+	await mkdir(stagedModules, { recursive: true });
+
+	const pkgPath = path.join(repoRoot, 'package.json');
+	const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+	const prodDeps = Object.keys(pkg.dependencies || {});
+
+	let copied = 0;
+	for (const dep of prodDeps) {
+		const src = path.join(nodeModulesSource, dep);
+		if (!fs.existsSync(src)) {
+			console.warn(`  WARN: dependency "${dep}" not found in node_modules, skipping`);
+			continue;
+		}
+		const resolved = await realpath(src);
+		const dest = path.join(stagedModules, dep);
+		await cp(resolved, dest, { recursive: true });
+		copied++;
+	}
+
+	console.log(`Staged ${copied} production dependencies`);
+}
+
 async function stageDist() {
 	await rm(stagedDist, { recursive: true, force: true });
 	if (persist) {
@@ -42,8 +73,7 @@ async function stageDist() {
 		console.log(`Linked dist → ${stagedDist}`);
 	} else {
 		await cp(distSource, stagedDist, { recursive: true });
-		await rm(stagedModules, { recursive: true, force: true });
-		await cp(nodeModulesSource, stagedModules, { recursive: true });
+		await stageNodeModules();
 		console.log(`Staged dist → ${stagedDist}`);
 	}
 	const sample = fs
