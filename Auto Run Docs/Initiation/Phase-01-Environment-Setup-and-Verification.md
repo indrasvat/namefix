@@ -24,7 +24,8 @@ This phase ensures the development environment is fully operational before any f
   - Verify the config directory was created at `~/Library/Application Support/namefix/`
   > **Completed**: `--help` output confirmed (all options listed, no errors). CLI ran in dry-run mode watching `~/Downloads` for 5 seconds — TUI initialized successfully and process was cleanly terminated. Config directory confirmed at `~/Library/Application Support/namefix/config.json` (795 bytes) with default profiles (Screenshots, Screen Recordings) and watch directories (Downloads, Desktop).
 
-- [ ] Run the full quality check to confirm everything is clean:
+- [x] Run the full quality check to confirm everything is clean:
   - Run `make check` (which runs `fmt + lint + typecheck + test`)
   - All four steps must pass — this is the baseline we'll maintain throughout all phases
   - If `make fmt` makes changes, that's fine (it auto-fixes), just confirm the subsequent steps still pass
+  > **Completed**: `make check` ran all four steps successfully. `fmt` auto-fixed 1 file (47 files checked, 26ms). `lint` passed with no fixes needed (47 files, 12ms). `typecheck` passed with zero errors. `test` passed all 11 tests across 4 spec files (406ms total). Full quality baseline confirmed clean.
