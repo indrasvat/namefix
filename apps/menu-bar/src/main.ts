@@ -363,16 +363,18 @@ function renderStatus(status: ServiceStatus) {
 	renderDirectories(status);
 }
 
-async function refreshStatus() {
-	try {
-		const status = await invoke<ServiceStatus>('get_status');
-		renderStatus(status);
-	} catch (error: unknown) {
-		showToast(
-			`Connection error: ${error instanceof Error ? error.message : String(error)}`,
-			'error',
-		);
+async function refreshStatus(retries = 3, delay = 500) {
+	for (let i = 0; i < retries; i++) {
+		try {
+			const status = await invoke<ServiceStatus>('get_status');
+			renderStatus(status);
+			return;
+		} catch {
+			if (i < retries - 1) await new Promise((r) => setTimeout(r, delay * (i + 1)));
+		}
 	}
+	showToast('Unable to connect to service', 'error');
+	if (statusSummary) statusSummary.textContent = 'Unable to connect to service';
 }
 
 async function toggleRunning() {

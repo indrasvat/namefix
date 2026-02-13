@@ -74,6 +74,31 @@ impl NodeBridge {
                     Ok(message) => {
                         if let Some(event) = message.get("event").and_then(|v| v.as_str()) {
                             let payload = message.get("payload").cloned().unwrap_or(Value::Null);
+                            match event {
+                                "file" => {
+                                    let kind = payload.get("kind").and_then(|v| v.as_str()).unwrap_or("?");
+                                    let file = payload.get("file").and_then(|v| v.as_str()).unwrap_or("?");
+                                    let target = payload.get("target").and_then(|v| v.as_str());
+                                    if let Some(t) = target {
+                                        log::info!("File event: {} {} → {}", kind, file, t);
+                                    } else {
+                                        log::info!("File event: {} {}", kind, file);
+                                    }
+                                }
+                                "toast" => {
+                                    let level = payload.get("level").and_then(|v| v.as_str()).unwrap_or("info");
+                                    let msg = payload.get("message").and_then(|v| v.as_str()).unwrap_or("?");
+                                    log::info!("Toast [{}]: {}", level, msg);
+                                }
+                                "status" => {
+                                    let running = payload.get("running").and_then(|v| v.as_bool()).unwrap_or(false);
+                                    let dirs = payload.get("directories").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
+                                    log::info!("Status: running={}, dirs={}", running, dirs);
+                                }
+                                _ => {
+                                    log::debug!("Bridge event: {}", event);
+                                }
+                            }
                             let _ = events_tx.send(BridgeEvent {
                                 name: event.to_string(),
                                 payload,
@@ -166,18 +191,24 @@ impl NodeBridge {
         }
         log::debug!("Bridge request sent, waiting for response...");
 
-        match rx.await {
-            Ok(Ok(value)) => {
+        match tokio::time::timeout(std::time::Duration::from_secs(10), rx).await {
+            Ok(Ok(Ok(value))) => {
                 log::debug!("Bridge response received: {:?}", value);
                 serde_json::from_value::<T>(value).map_err(|err| err.to_string())
             }
-            Ok(Err(err)) => {
+            Ok(Ok(Err(err))) => {
                 log::error!("Bridge response error: {}", err);
                 Err(err)
             }
-            Err(_) => {
+            Ok(Err(_)) => {
                 log::error!("Bridge channel closed");
                 Err("bridge channel closed".to_string())
+            }
+            Err(_) => {
+                log::error!("Bridge request timed out: method={}", method);
+                let mut pending = self.0.pending.lock().await;
+                pending.remove(&id);
+                Err("Bridge request timed out".to_string())
             }
         }
     }

@@ -75,14 +75,10 @@ if (!resolvedModuleUrl) {
 	die(`build artifacts not found: ${distCandidates.join(', ')}`);
 }
 
-const { NamefixService } = await import(resolvedModuleUrl);
-const service = new NamefixService();
-
-await service.init();
-await service.start();
-
 const emitterUnsubs = [];
 let shuttingDown = false;
+let serviceReady = false;
+let service = null;
 
 function sendMessage(payload) {
 	if (dead || shuttingDown) return;
@@ -95,111 +91,162 @@ function sendMessage(payload) {
 
 function forwardEvents() {
 	emitterUnsubs.push(
-		service.on('status', (status) => sendMessage({ event: 'status', payload: status })),
+		service.on('status', (status) => {
+			safeStderr(`[EVENT] status: running=${status.running}, dirs=${status.directories?.length ?? 0}, dryRun=${status.dryRun}`);
+			sendMessage({ event: 'status', payload: status });
+		}),
 	);
-	emitterUnsubs.push(service.on('file', (event) => sendMessage({ event: 'file', payload: event })));
 	emitterUnsubs.push(
-		service.on('toast', (toast) => sendMessage({ event: 'toast', payload: toast })),
+		service.on('file', (event) => {
+			safeStderr(`[EVENT] file: ${event.kind} ${event.file ?? '?'}${event.target ? ` → ${event.target}` : ''}${event.message ? ` (${event.message})` : ''}`);
+			sendMessage({ event: 'file', payload: event });
+		}),
 	);
 	emitterUnsubs.push(
-		service.on('config', (config) => sendMessage({ event: 'config', payload: config })),
+		service.on('toast', (toast) => {
+			safeStderr(`[EVENT] toast: [${toast.level}] ${toast.message}`);
+			sendMessage({ event: 'toast', payload: toast });
+		}),
+	);
+	emitterUnsubs.push(
+		service.on('config', (config) => {
+			safeStderr(`[EVENT] config changed`);
+			sendMessage({ event: 'config', payload: config });
+		}),
 	);
 }
 
-forwardEvents();
+// Start init in background — readline loop starts IMMEDIATELY below
+(async () => {
+	try {
+		const { NamefixService } = await import(resolvedModuleUrl);
+		service = new NamefixService();
+		await service.init();
+		await service.start();
+		serviceReady = true;
+		forwardEvents();
+		// Push initial status to Rust so tray updates right away
+		sendMessage({ event: 'status', payload: service.getStatus() });
+	} catch (err) {
+		safeStderr(`init failed: ${err?.stack ?? err}`);
+	}
+})();
+
+function requireReady(label) {
+	if (!serviceReady || !service) {
+		throw new Error(`Service not ready (${label})`);
+	}
+	return service;
+}
 
 const handlers = {
 	async getStatus() {
+		if (!serviceReady || !service) {
+			return { running: false, directories: [], dryRun: false, launchOnLogin: false };
+		}
 		return service.getStatus();
 	},
 	async toggleRunning(params = {}) {
+		const svc = requireReady('toggleRunning');
 		const desired = params.desired;
 		if (typeof desired === 'boolean') {
-			const status = service.getStatus();
+			const status = svc.getStatus();
 			if (status.running !== desired) {
-				await service.toggleRunning();
+				await svc.toggleRunning();
 			}
-			return service.getStatus();
+			return svc.getStatus();
 		}
-		await service.toggleRunning();
-		return service.getStatus();
+		await svc.toggleRunning();
+		return svc.getStatus();
 	},
 	async listDirectories() {
+		if (!serviceReady || !service) return [];
 		return service.getStatus().directories;
 	},
 	async setLaunchOnLogin(params = {}) {
+		const svc = requireReady('setLaunchOnLogin');
 		const enabled = Boolean(params.enabled);
-		await service.setLaunchOnLogin(enabled);
-		return service.getConfig().launchOnLogin;
+		await svc.setLaunchOnLogin(enabled);
+		return svc.getConfig().launchOnLogin;
 	},
 	async setDryRun(params = {}) {
+		const svc = requireReady('setDryRun');
 		if (typeof params.enabled === 'boolean') {
-			await service.setDryRun(params.enabled);
+			await svc.setDryRun(params.enabled);
 		}
-		return service.getStatus();
+		return svc.getStatus();
 	},
 	async addWatchDir(params = {}) {
+		const svc = requireReady('addWatchDir');
 		const dir = params.directory;
 		if (typeof dir !== 'string' || dir.trim().length === 0) {
 			throw new Error('directory is required');
 		}
-		await service.addWatchDir(dir);
-		return service.getStatus().directories;
+		await svc.addWatchDir(dir);
+		return svc.getStatus().directories;
 	},
 	async removeWatchDir(params = {}) {
+		const svc = requireReady('removeWatchDir');
 		const dir = params.directory;
 		if (typeof dir !== 'string' || dir.trim().length === 0) {
 			throw new Error('directory is required');
 		}
-		await service.removeWatchDir(dir);
-		return service.getStatus().directories;
+		await svc.removeWatchDir(dir);
+		return svc.getStatus().directories;
 	},
 	async undo() {
-		return service.undoLast();
+		const svc = requireReady('undo');
+		return svc.undoLast();
 	},
 
 	// Profile management
 	async getProfiles() {
+		if (!serviceReady || !service) return [];
 		return service.getProfiles();
 	},
 	async getProfile(params = {}) {
+		const svc = requireReady('getProfile');
 		const { id } = params;
 		if (typeof id !== 'string') {
 			throw new Error('profile id is required');
 		}
-		return service.getProfile(id) ?? null;
+		return svc.getProfile(id) ?? null;
 	},
 	async setProfile(params = {}) {
+		const svc = requireReady('setProfile');
 		const { profile } = params;
 		if (!profile || typeof profile !== 'object') {
 			throw new Error('profile is required');
 		}
-		await service.setProfile(profile);
-		return service.getProfiles();
+		await svc.setProfile(profile);
+		return svc.getProfiles();
 	},
 	async deleteProfile(params = {}) {
+		const svc = requireReady('deleteProfile');
 		const { id } = params;
 		if (typeof id !== 'string') {
 			throw new Error('profile id is required');
 		}
-		await service.deleteProfile(id);
-		return service.getProfiles();
+		await svc.deleteProfile(id);
+		return svc.getProfiles();
 	},
 	async toggleProfile(params = {}) {
+		const svc = requireReady('toggleProfile');
 		const { id, enabled } = params;
 		if (typeof id !== 'string') {
 			throw new Error('profile id is required');
 		}
-		await service.toggleProfile(id, enabled);
-		return service.getProfiles();
+		await svc.toggleProfile(id, enabled);
+		return svc.getProfiles();
 	},
 	async reorderProfiles(params = {}) {
+		const svc = requireReady('reorderProfiles');
 		const { orderedIds } = params;
 		if (!Array.isArray(orderedIds)) {
 			throw new Error('orderedIds is required');
 		}
-		await service.reorderProfiles(orderedIds);
-		return service.getProfiles();
+		await svc.reorderProfiles(orderedIds);
+		return svc.getProfiles();
 	},
 
 	async shutdown() {
@@ -211,7 +258,7 @@ const handlers = {
 				/* ignore */
 			}
 		}
-		await service.stop();
+		if (service) await service.stop();
 		sendMessage({ event: 'shutdown', payload: {} });
 		setTimeout(() => exit(0), 100);
 		return true;
