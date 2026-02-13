@@ -695,6 +695,22 @@
         color: var(--text-subtle);
       }
 
+      .form-group select {
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(10, 12, 24, 0.3);
+        color: inherit;
+        font-size: 0.88rem;
+        font-family: inherit;
+        cursor: pointer;
+      }
+      .form-group select:focus {
+        border-color: var(--accent);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+      }
+
       .form-hint {
         font-size: 0.75rem;
         color: var(--text-subtle);
@@ -856,7 +872,8 @@
 
       @media (prefers-color-scheme: light) {
         .form-group input[type="text"],
-        .form-group input[type="number"] {
+        .form-group input[type="number"],
+        .form-group select {
           background: rgba(255, 255, 255, 0.8);
         }
 
@@ -955,8 +972,8 @@
         <div class="card">
           <div class="profiles-header">
             <div>
-              <h2>Rename Profiles</h2>
-              <p>Rules that determine how files are renamed</p>
+              <h2>Profiles</h2>
+              <p>Rules that determine how matched files are processed</p>
             </div>
           </div>
           <ul id="profiles" class="profiles-list"></ul>
@@ -1006,6 +1023,15 @@
             <label for="profile-priority">Priority</label>
             <input type="number" id="profile-priority" value="1" min="1" max="100" />
             <div class="form-hint">Lower = matched first</div>
+          </div>
+          <div class="form-group">
+            <label for="profile-action">Action</label>
+            <select id="profile-action">
+              <option value="rename">Rename only</option>
+              <option value="convert">Convert format</option>
+              <option value="rename+convert">Convert + Rename</option>
+            </select>
+            <div class="form-hint">What to do when a file matches this profile</div>
           </div>
           <div class="preview-section">
             <div class="preview-label">Preview</div>

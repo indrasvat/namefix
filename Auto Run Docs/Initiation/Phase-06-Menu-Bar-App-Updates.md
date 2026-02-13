@@ -15,7 +15,7 @@ This phase updates the Tauri menu bar frontend to expose the new `action` field 
   - In `apps/menu-bar/src-tauri/resources/service-bridge.mjs`:
     - Verify no changes are needed — the bridge forwards profile objects between Tauri and `NamefixService` generically via JSON-RPC. The new `action` field should pass through without code changes. If the `setProfile` handler destructures specific fields, update it to include `action`.
 
-- [ ] Add the `action` field to the profile editor modal in the HTML:
+- [x] Add the `action` field to the profile editor modal in the HTML:
   - In `apps/menu-bar/index.html`:
     - Add a new form group for the Action selector between the Priority and Preview sections:
       ```html
