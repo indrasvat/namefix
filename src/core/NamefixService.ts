@@ -501,6 +501,11 @@ export class NamefixService {
 				timestamp: Date.now(),
 				format: 'jpeg',
 			});
+			this.eventBus.emit('file:converted', {
+				from: ev.path,
+				to: result.destPath,
+				format: 'jpeg',
+			});
 			await this.journal.record(ev.path, result.destPath);
 
 			// Trash the original
@@ -513,6 +518,7 @@ export class NamefixService {
 						directory,
 						timestamp: Date.now(),
 					});
+					this.eventBus.emit('file:trashed', { path: ev.path });
 				} else {
 					this.emit('toast', {
 						level: 'warn',
@@ -581,6 +587,11 @@ export class NamefixService {
 				timestamp: Date.now(),
 				format: 'jpeg',
 			});
+			this.eventBus.emit('file:converted', {
+				from: ev.path,
+				to: result.destPath,
+				format: 'jpeg',
+			});
 
 			// Step 2: Rename the converted output
 			const convertedExt = path.extname(result.destPath);
@@ -625,6 +636,7 @@ export class NamefixService {
 						directory,
 						timestamp: Date.now(),
 					});
+					this.eventBus.emit('file:trashed', { path: ev.path });
 				} else {
 					this.emit('toast', {
 						level: 'warn',
