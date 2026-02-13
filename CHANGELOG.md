@@ -1,3 +1,10 @@
+## [0.3.5](https://github.com/indrasvat/namefix/compare/v0.3.4...v0.3.5) (2026-02-13)
+
+
+### Bug Fixes
+
+* **menu-bar:** autostart sync via events, single instance ([#23](https://github.com/indrasvat/namefix/issues/23)) ([2e2e86e](https://github.com/indrasvat/namefix/commit/2e2e86ec4192c6a232f930fcb3cfce66f4952c43))
+
 ## [0.3.4](https://github.com/indrasvat/namefix/compare/v0.3.3...v0.3.4) (2026-02-13)
 
 
