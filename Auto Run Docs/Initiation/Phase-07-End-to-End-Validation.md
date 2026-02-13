@@ -13,7 +13,7 @@ This phase is the final quality gate. It runs the full test suite, performs a re
   - If any test fails, fix it before proceeding
   - ✅ **Completed**: `make check` passed — fmt, lint, typecheck, and all 38 tests across 7 spec files pass green.
 
-- [ ] Perform a real HEIC→JPEG conversion smoke test:
+- [x] Perform a real HEIC→JPEG conversion smoke test:
   - Create a temporary test directory: `mkdir -p /tmp/namefix-smoke-test`
   - Verify `sips` is available: `which sips` (should be at `/usr/bin/sips`)
   - Create a test HEIC file if one is available, OR test with a PNG-to-JPEG conversion as a proxy:
@@ -22,6 +22,7 @@ This phase is the final quality gate. It runs the full test suite, performs a re
   - If a real `.heic` file is available in `~/Downloads`, copy it to the temp dir and test conversion
   - Verify the output file exists and has a non-zero size
   - Clean up: `rm -rf /tmp/namefix-smoke-test`
+  - ✅ **Completed**: `sips` confirmed at `/usr/bin/sips`. PNG→JPEG proxy conversion succeeded (931 bytes valid JPEG output). No real HEIC files found on disk. Temp directory cleaned up.
 
 - [ ] Build the CLI and verify the new default profile appears:
   - Run `make build` to compile the TypeScript core
