@@ -12,7 +12,7 @@ export class ScreenManager {
 	footer = new FooterView();
 	toast = new ToastView();
 	theme = new ThemeManager();
-	dryRun = true;
+	dryRun = false;
 	private modalOpen = false;
 
 	setModalOpen(v: boolean) {
