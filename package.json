@@ -22,9 +22,10 @@
 		"build": "tsc -p tsconfig.json",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
 		"start": "node bin/namefix.js",
-		"biome": "biome check --apply . || true",
-		"format": "biome format --write . || true",
-		"lint": "biome lint . || true",
+		"biome": "biome check --apply .",
+		"format": "biome format --write .",
+		"format:check": "biome format .",
+		"lint": "biome lint .",
 		"prepare": "husky",
 		"test": "vitest run || echo 'tests pending'",
 		"menubar": "npm --prefix apps/menu-bar run tauri:dev",
@@ -51,9 +52,13 @@
 		"@types/node": "^20.12.12",
 		"@types/picomatch": "^4.0.2",
 		"husky": "^9.1.7",
+		"lint-staged": "^16.2.7",
 		"semantic-release": "^25.0.1",
 		"typescript": "^5.5.0",
 		"vitest": "^2.0.0"
+	},
+	"lint-staged": {
+		"*.{ts,js,mjs,json}": "biome format --write --no-errors-on-unmatched"
 	},
 	"dependencies": {
 		"blessed": "^0.1.81",

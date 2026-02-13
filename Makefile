@@ -1,4 +1,4 @@
-.PHONY: help all build test lint fmt check ci clean dev dev-app run-app release stage-resources install-hooks
+.PHONY: help all build test lint fmt fmt-check check ci clean dev dev-app run-app release stage-resources install-hooks
 
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
@@ -55,7 +55,11 @@ fmt: ## Format code
 	@printf "\033[33mFormatting...\033[0m\n"
 	@$(PNPM) run format
 
-check: fmt lint typecheck test ## Run fmt + lint + typecheck + test
+fmt-check: ## Check formatting (read-only)
+	@printf "\033[33mChecking format...\033[0m\n"
+	@$(PNPM) run format:check
+
+check: fmt-check lint typecheck test ## fmt-check + lint + typecheck + test
 
 ci: check build ## Run full CI pipeline
 	@printf "\033[32mCI pipeline complete!\033[0m\n"
