@@ -84,9 +84,10 @@ This phase updates the Tauri menu bar frontend to expose the new `action` field 
   - If there IS a file event section, add styling for `converted` (cyan accent), `convert-error` (red), and `trashed` (gray) event kinds
   - **Verified**: No file event display section exists in `index.html`. The `main.ts` does not listen for `service://file` events. The toast system (`service://toast` listener at bootstrap) already handles conversion success/failure messages. No code changes needed.
 
-- [ ] Run quality checks on the menu bar app:
+- [x] Run quality checks on the menu bar app:
   - Run `make typecheck` — verify no TS errors in the menu bar source
   - Run `make lint` to verify code style
   - Run `make build` to ensure the TypeScript core compiles (the menu bar frontend builds via Vite when needed)
   - Run `make test` to verify no regressions
   - Run `make check` for the full pipeline
+  - **Verified**: All checks pass — typecheck clean, lint clean (52 files), build succeeds, all 38 tests pass across 7 test files. Biome formatter applied one minor ternary line-collapse fix in `main.ts`.

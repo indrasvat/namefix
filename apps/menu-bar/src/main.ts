@@ -562,9 +562,7 @@ function updatePreview() {
 	const isConvertOnly = action === 'convert';
 
 	// Use HEIC sample for convert actions to show format change
-	const sampleOriginal = isConvertOnly
-		? 'IMG_1234.heic'
-		: 'Screenshot 2024-12-26 at 21.30.00.png';
+	const sampleOriginal = isConvertOnly ? 'IMG_1234.heic' : 'Screenshot 2024-12-26 at 21.30.00.png';
 
 	let result: string;
 	if (isConvertOnly) {
