@@ -14,6 +14,7 @@
 		"ignore": [
 			"apps/menu-bar/dist/**",
 			"apps/menu-bar/src-tauri/target/**",
+			"apps/menu-bar/src-tauri/gen/**",
 			"dist/**",
 			".codemap/**"
 		]

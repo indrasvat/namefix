@@ -40,3 +40,5 @@ jobs:
 
       - name: Run semantic-release
         run: pnpm run release
+        env:
+          HUSKY: '0'
