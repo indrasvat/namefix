@@ -230,7 +230,7 @@ pub fn register_status_listener(app: &AppHandle<Wry>) {
     });
 }
 
-fn sync_autostart(app: &AppHandle<Wry>, desired: bool) {
+pub(crate) fn sync_autostart(app: &AppHandle<Wry>, desired: bool) {
     use tauri_plugin_autostart::ManagerExt;
     let manager = app.autolaunch();
     let current = manager.is_enabled().unwrap_or(false);

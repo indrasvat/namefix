@@ -22,7 +22,7 @@ use ipc::{
     toggle_running,
     undo,
 };
-use tray::{init_tray, register_status_listener, TrayState};
+use tray::{init_tray, register_status_listener, sync_autostart, TrayState};
 
 #[cfg(target_os = "macos")]
 use tauri::ActivationPolicy;
@@ -91,6 +91,20 @@ fn main() {
                     if let Some(window) = app_handle.get_webview_window("main") {
                         let _ = window.hide();
                     }
+
+                    // Fallback startup sync: if the sidecar's initial status
+                    // event fired before the listener was registered, the
+                    // event-driven sync_autostart never runs. Explicitly
+                    // fetch status here to close the race.
+                    let fallback_handle = app_handle.clone();
+                    tauri::async_runtime::spawn(async move {
+                        let bridge_state = fallback_handle.state::<BridgeState>();
+                        match bridge::get_status(bridge_state.inner()).await {
+                            Ok(status) => sync_autostart(&fallback_handle, status.launch_on_login),
+                            Err(e) => log::warn!("Startup autostart sync failed: {}", e),
+                        }
+                    });
+
                     Ok(())
                 }
                 Err(err) => Err(err.into()),
