@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import type { IProfile } from '../../types/index.js';
 
 function pad2(n: number): string {
 	return String(n).padStart(2, '0');
@@ -181,7 +182,18 @@ export const DEFAULT_TEMPLATE = '<prefix>_<datetime>';
 /**
  * Default profiles shipped with Namefix.
  */
-export const DEFAULT_PROFILES = [
+export const DEFAULT_PROFILES: IProfile[] = [
+	{
+		id: 'heic-convert',
+		name: 'HEIC to JPEG',
+		enabled: true,
+		pattern: '*.heic',
+		isRegex: false,
+		template: '<original>',
+		prefix: '',
+		priority: 0,
+		action: 'convert',
+	},
 	{
 		id: 'screenshots',
 		name: 'Screenshots',
@@ -202,7 +214,7 @@ export const DEFAULT_PROFILES = [
 		prefix: 'Recording',
 		priority: 2,
 	},
-] as const;
+];
 
 /**
  * Generate a unique ID for a new profile using crypto.randomUUID().

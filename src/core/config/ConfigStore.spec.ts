@@ -52,4 +52,117 @@ describe('ConfigStore', () => {
 		expect(updated.watchDirs[0]).toBe(path.resolve(dirC));
 		expect(updated.watchDirs).toContain(base.watchDirs[0]);
 	});
+
+	it('loads configs without action field (backward compat)', async () => {
+		const configHome = process.env.NAMEFIX_HOME;
+		if (!configHome) throw new Error('NAMEFIX_HOME should be defined');
+		await fs.mkdir(configHome, { recursive: true });
+		const legacyConfig = {
+			watchDir: path.join(tempRoot, 'watch'),
+			watchDirs: [path.join(tempRoot, 'watch')],
+			prefix: 'Screenshot',
+			include: ['Screenshot*'],
+			exclude: [],
+			dryRun: true,
+			theme: 'default',
+			launchOnLogin: false,
+			profiles: [
+				{
+					id: 'screenshots',
+					name: 'Screenshots',
+					enabled: true,
+					pattern: 'Screenshot*',
+					isRegex: false,
+					template: '<prefix>_<datetime>',
+					prefix: 'Screenshot',
+					priority: 1,
+				},
+			],
+		};
+		await fs.writeFile(
+			path.join(configHome, 'config.json'),
+			JSON.stringify(legacyConfig, null, 2),
+			'utf8',
+		);
+
+		const store = new ConfigStore();
+		const cfg = await store.get();
+		expect(cfg.profiles).toHaveLength(1);
+		expect(cfg.profiles[0]?.action).toBeUndefined();
+		expect(cfg.profiles[0]?.id).toBe('screenshots');
+	});
+
+	it('accepts profiles with valid action values', async () => {
+		const configHome = process.env.NAMEFIX_HOME;
+		if (!configHome) throw new Error('NAMEFIX_HOME should be defined');
+		await fs.mkdir(configHome, { recursive: true });
+		const configWithActions = {
+			watchDir: path.join(tempRoot, 'watch'),
+			watchDirs: [path.join(tempRoot, 'watch')],
+			prefix: 'Screenshot',
+			include: ['Screenshot*'],
+			exclude: [],
+			dryRun: true,
+			theme: 'default',
+			launchOnLogin: false,
+			profiles: [
+				{
+					id: 'p1',
+					name: 'Rename Only',
+					enabled: true,
+					pattern: 'Screenshot*',
+					isRegex: false,
+					template: '<prefix>_<datetime>',
+					prefix: 'Screenshot',
+					priority: 1,
+					action: 'rename',
+				},
+				{
+					id: 'p2',
+					name: 'Convert Only',
+					enabled: true,
+					pattern: '*.heic',
+					isRegex: false,
+					template: '<original>',
+					prefix: '',
+					priority: 0,
+					action: 'convert',
+				},
+				{
+					id: 'p3',
+					name: 'Both',
+					enabled: true,
+					pattern: '*.heif',
+					isRegex: false,
+					template: '<prefix>_<datetime>',
+					prefix: 'Photo',
+					priority: 2,
+					action: 'rename+convert',
+				},
+			],
+		};
+		await fs.writeFile(
+			path.join(configHome, 'config.json'),
+			JSON.stringify(configWithActions, null, 2),
+			'utf8',
+		);
+
+		const store = new ConfigStore();
+		const cfg = await store.get();
+		expect(cfg.profiles).toHaveLength(3);
+		expect(cfg.profiles[0]?.action).toBe('rename');
+		expect(cfg.profiles[1]?.action).toBe('convert');
+		expect(cfg.profiles[2]?.action).toBe('rename+convert');
+	});
+
+	it('includes heic-convert default profile in fresh configs', async () => {
+		const store = new ConfigStore();
+		const cfg = await store.get();
+		const heicProfile = cfg.profiles.find((p) => p.id === 'heic-convert');
+		expect(heicProfile).toBeDefined();
+		expect(heicProfile?.name).toBe('HEIC to JPEG');
+		expect(heicProfile?.action).toBe('convert');
+		expect(heicProfile?.pattern).toBe('*.heic');
+		expect(heicProfile?.priority).toBe(0);
+	});
 });

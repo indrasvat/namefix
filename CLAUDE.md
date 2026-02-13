@@ -47,6 +47,8 @@ NamefixService           # Central orchestrator - manages config, watchers, rena
 ├── ConfigStore          # Persists settings to config.json, emits change events
 ├── WatchService         # Chokidar-based file watcher per directory (with health monitoring)
 ├── RenameService        # Generates target names, handles collisions
+├── ConversionService    # Image format conversion via macOS sips (HEIC→JPEG etc.)
+├── TrashService         # Move files to macOS Trash via Finder AppleScript
 ├── Matcher              # Picomatch-based include/exclude filtering
 ├── ProfileMatcher       # Profile-based pattern matching with priority support
 ├── NameTemplate         # Template variable system for customizable rename formats
@@ -69,6 +71,7 @@ interface IProfile {
   template: string;     // Output format template
   prefix: string;       // Prefix for <prefix> variable
   priority: number;     // Lower = matched first
+  action?: 'rename' | 'convert' | 'rename+convert';  // Default: 'rename'
 }
 ```
 
@@ -112,7 +115,7 @@ Mapped in `tsconfig.json`: `@core/*`, `@tui/*`, `@types/*`, `@utils/*`
 ### Service Events
 
 ```typescript
-service.on('file', (event) => { /* preview | applied | skipped | error */ });
+service.on('file', (event) => { /* preview | applied | skipped | error | converted | convert-error | trashed */ });
 service.on('status', (status) => { /* running, directories, dryRun */ });
 service.on('config', (cfg) => { /* config changed */ });
 service.on('toast', ({ message, level }) => { /* notifications */ });

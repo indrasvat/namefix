@@ -32,6 +32,8 @@ export interface IProfile {
 	prefix: string;
 	/** Priority order (lower = higher priority, matched first) */
 	priority: number;
+	/** Action to perform on matched files: rename (default), convert, or both */
+	action?: 'rename' | 'convert' | 'rename+convert';
 }
 
 export interface IConfig {

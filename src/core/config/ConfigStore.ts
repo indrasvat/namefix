@@ -23,18 +23,23 @@ function isStringArray(v: unknown): v is string[] {
 	return Array.isArray(v) && v.every((x) => typeof x === 'string');
 }
 
+const VALID_ACTIONS = new Set(['rename', 'convert', 'rename+convert']);
+
 function isValidProfile(p: unknown): p is IProfile {
 	if (typeof p !== 'object' || p === null) return false;
 	const obj = p as Record<string, unknown>;
-	return (
+	const baseValid =
 		typeof obj.id === 'string' &&
 		typeof obj.name === 'string' &&
 		typeof obj.enabled === 'boolean' &&
 		typeof obj.pattern === 'string' &&
 		typeof obj.template === 'string' &&
 		typeof obj.prefix === 'string' &&
-		typeof obj.priority === 'number'
-	);
+		typeof obj.priority === 'number';
+	if (!baseValid) return false;
+	// action is optional; if present, must be a valid value
+	if (obj.action !== undefined && !VALID_ACTIONS.has(obj.action as string)) return false;
+	return true;
 }
 
 function isProfileArray(v: unknown): v is IProfile[] {

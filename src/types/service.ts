@@ -11,7 +11,17 @@ export type ServiceFileEvent =
 	| { kind: 'preview'; file: string; target: string; directory: string; timestamp: number }
 	| { kind: 'applied'; file: string; target: string; directory: string; timestamp: number }
 	| { kind: 'skipped'; file: string; directory: string; timestamp: number; message?: string }
-	| { kind: 'error'; file: string; directory: string; timestamp: number; message: string };
+	| { kind: 'error'; file: string; directory: string; timestamp: number; message: string }
+	| {
+			kind: 'converted';
+			file: string;
+			target: string;
+			directory: string;
+			timestamp: number;
+			format: string;
+	  }
+	| { kind: 'convert-error'; file: string; directory: string; timestamp: number; message: string }
+	| { kind: 'trashed'; file: string; directory: string; timestamp: number };
 
 export type ServiceToastEvent = { message: string; level: 'info' | 'warn' | 'error' };
 

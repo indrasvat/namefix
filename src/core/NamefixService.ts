@@ -16,6 +16,8 @@ import { Matcher, ProfileMatcher } from './rename/Matcher.js';
 import { FsSafe } from './fs/FsSafe.js';
 import { WatchService } from './fs/WatchService.js';
 import { JournalStore } from './journal/JournalStore.js';
+import { ConversionService } from './convert/ConversionService.js';
+import { TrashService } from './convert/TrashService.js';
 import type { ServiceEventMap, ServiceStatus } from '../types/service.js';
 import { TypedEmitter } from '../utils/TypedEmitter.js';
 
@@ -30,6 +32,8 @@ export class NamefixService {
 	private logger: ILogger;
 	private eventBus: EventBus;
 	private renamer: RenameService;
+	private converter: ConversionService;
+	private trasher: TrashService;
 	private fsSafe: FsSafe;
 	private journal: JournalStore;
 	/** @deprecated Legacy matcher for backwards compatibility */
@@ -57,6 +61,8 @@ export class NamefixService {
 			eventBus?: EventBus;
 			fsSafe?: FsSafe;
 			renamer?: RenameService;
+			converter?: ConversionService;
+			trasher?: TrashService;
 			watcherFactory?: (dir: string, fsSafe: FsSafe) => IWatchService;
 		} = {},
 	) {
@@ -65,6 +71,8 @@ export class NamefixService {
 		this.eventBus = deps.eventBus ?? new EventBus();
 		this.fsSafe = deps.fsSafe ?? new FsSafe();
 		this.renamer = deps.renamer ?? new RenameService();
+		this.converter = deps.converter ?? new ConversionService();
+		this.trasher = deps.trasher ?? new TrashService();
 		this.journal = new JournalStore(this.fsSafe);
 		this.createWatcher = deps.watcherFactory ?? ((dir, fsSafe) => new WatchService(dir, fsSafe));
 	}
@@ -427,6 +435,221 @@ export class NamefixService {
 	}
 
 	private async handleProfileRename(
+		directory: string,
+		ev: { path: string; birthtimeMs: number; mtimeMs: number; size: number },
+		basename: string,
+		extVal: string,
+		dir: string,
+		profile: IProfile,
+		cfg: IConfig,
+	) {
+		const action = profile.action ?? 'rename';
+
+		if (action === 'convert') {
+			await this.handleConvert(directory, ev, basename, extVal, dir, cfg);
+			return;
+		}
+
+		if (action === 'rename+convert') {
+			await this.handleRenameAndConvert(directory, ev, basename, extVal, dir, profile, cfg);
+			return;
+		}
+
+		// action === 'rename' (default)
+		await this.handleRenameOnly(directory, ev, basename, extVal, dir, profile, cfg);
+	}
+
+	private async handleConvert(
+		directory: string,
+		ev: { path: string; birthtimeMs: number; mtimeMs: number; size: number },
+		basename: string,
+		extVal: string,
+		dir: string,
+		cfg: IConfig,
+	) {
+		if (!this.converter.canConvert(extVal)) {
+			this.emit('file', {
+				kind: 'skipped',
+				directory,
+				file: basename,
+				timestamp: Date.now(),
+				message: 'unsupported format',
+			});
+			return;
+		}
+
+		if (cfg.dryRun) {
+			const targetName = `${path.basename(basename, extVal)}.jpeg`;
+			this.emit('file', {
+				kind: 'preview',
+				directory,
+				file: basename,
+				target: targetName,
+				timestamp: Date.now(),
+			});
+			return;
+		}
+
+		try {
+			const result = await this.converter.convert(ev.path, { outputFormat: 'jpeg' });
+			const convertedBasename = path.basename(result.destPath);
+			this.emit('file', {
+				kind: 'converted',
+				file: basename,
+				target: convertedBasename,
+				directory,
+				timestamp: Date.now(),
+				format: 'jpeg',
+			});
+			await this.journal.record(ev.path, result.destPath);
+
+			// Trash the original
+			try {
+				const trashResult = await this.trasher.moveToTrash(ev.path);
+				if (trashResult.success) {
+					this.emit('file', {
+						kind: 'trashed',
+						file: basename,
+						directory,
+						timestamp: Date.now(),
+					});
+				} else {
+					this.emit('toast', {
+						level: 'warn',
+						message: `Could not trash original: ${trashResult.error}`,
+					});
+				}
+			} catch {
+				this.emit('toast', {
+					level: 'warn',
+					message: `Could not trash original: ${basename}`,
+				});
+			}
+		} catch (e: unknown) {
+			const error = e instanceof Error ? e : new Error(String(e));
+			this.emit('file', {
+				kind: 'convert-error',
+				file: basename,
+				directory,
+				timestamp: Date.now(),
+				message: error.message || 'conversion failed',
+			});
+		}
+	}
+
+	private async handleRenameAndConvert(
+		directory: string,
+		ev: { path: string; birthtimeMs: number; mtimeMs: number; size: number },
+		basename: string,
+		extVal: string,
+		dir: string,
+		profile: IProfile,
+		cfg: IConfig,
+	) {
+		if (!this.converter.canConvert(extVal)) {
+			this.emit('file', {
+				kind: 'skipped',
+				directory,
+				file: basename,
+				timestamp: Date.now(),
+				message: 'unsupported format',
+			});
+			return;
+		}
+
+		if (cfg.dryRun) {
+			const convertedName = `${path.basename(basename, extVal)}.jpeg`;
+			this.emit('file', {
+				kind: 'preview',
+				directory,
+				file: basename,
+				target: convertedName,
+				timestamp: Date.now(),
+			});
+			return;
+		}
+
+		try {
+			// Step 1: Convert
+			const result = await this.converter.convert(ev.path, { outputFormat: 'jpeg' });
+			const convertedBasename = path.basename(result.destPath);
+			this.emit('file', {
+				kind: 'converted',
+				file: basename,
+				target: convertedBasename,
+				directory,
+				timestamp: Date.now(),
+				format: 'jpeg',
+			});
+
+			// Step 2: Rename the converted output
+			const convertedExt = path.extname(result.destPath);
+			const { filename: targetBase } = await this.renamer.targetForProfile(
+				result.destPath,
+				{ birthtime: new Date(ev.birthtimeMs), ext: convertedExt },
+				profile,
+			);
+			const targetPath = path.join(dir, targetBase);
+
+			try {
+				await this.fsSafe.atomicRename(result.destPath, targetPath);
+				await this.journal.record(ev.path, targetPath);
+				this.emit('file', {
+					kind: 'applied',
+					directory,
+					file: convertedBasename,
+					target: targetBase,
+					timestamp: Date.now(),
+				});
+			} catch (e: unknown) {
+				const error = e instanceof Error ? e : new Error(String(e));
+				this.logger.error(error);
+				this.emit('file', {
+					kind: 'error',
+					directory,
+					file: convertedBasename,
+					timestamp: Date.now(),
+					message: error.message || 'rename failed',
+				});
+			} finally {
+				this.renamer.release(dir, targetBase);
+			}
+
+			// Step 3: Trash the original
+			try {
+				const trashResult = await this.trasher.moveToTrash(ev.path);
+				if (trashResult.success) {
+					this.emit('file', {
+						kind: 'trashed',
+						file: basename,
+						directory,
+						timestamp: Date.now(),
+					});
+				} else {
+					this.emit('toast', {
+						level: 'warn',
+						message: `Could not trash original: ${trashResult.error}`,
+					});
+				}
+			} catch {
+				this.emit('toast', {
+					level: 'warn',
+					message: `Could not trash original: ${basename}`,
+				});
+			}
+		} catch (e: unknown) {
+			const error = e instanceof Error ? e : new Error(String(e));
+			this.emit('file', {
+				kind: 'convert-error',
+				file: basename,
+				directory,
+				timestamp: Date.now(),
+				message: error.message || 'conversion failed',
+			});
+		}
+	}
+
+	private async handleRenameOnly(
 		directory: string,
 		ev: { path: string; birthtimeMs: number; mtimeMs: number; size: number },
 		basename: string,
