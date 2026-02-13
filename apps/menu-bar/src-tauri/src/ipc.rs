@@ -1,5 +1,6 @@
 use crate::bridge::{self, BridgeState, ServiceStatus};
 use anyhow::anyhow;
+use tauri_plugin_autostart::ManagerExt;
 
 fn map_bridge_err<T>(result: Result<T, String>) -> tauri::Result<T> {
     result.map_err(|err| tauri::Error::Anyhow(anyhow!(err)))
@@ -25,9 +26,17 @@ pub async fn list_directories(state: tauri::State<'_, BridgeState>) -> tauri::Re
 
 #[tauri::command]
 pub async fn set_launch_on_login(
+    app_handle: tauri::AppHandle,
     state: tauri::State<'_, BridgeState>,
     enabled: bool,
 ) -> tauri::Result<bool> {
+    let manager = app_handle.autolaunch();
+    if enabled {
+        manager.enable().map_err(|e| tauri::Error::Anyhow(anyhow!(e)))?;
+    } else {
+        manager.disable().map_err(|e| tauri::Error::Anyhow(anyhow!(e)))?;
+    }
+    log::info!("Autostart {}", if enabled { "enabled" } else { "disabled" });
     map_bridge_err(bridge::set_launch_on_login(&state, enabled).await)
 }
 

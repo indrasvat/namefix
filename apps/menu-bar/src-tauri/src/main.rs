@@ -6,6 +6,7 @@ mod tray;
 
 use bridge::{init_bridge, BridgeState};
 use tauri::{Manager, RunEvent, WindowEvent};
+use tauri_plugin_autostart::ManagerExt;
 use ipc::{
     add_watch_dir,
     delete_profile,
@@ -78,8 +79,28 @@ fn main() {
                     let tray_state = init_tray(&app_handle, &bridge)
                         .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
                     register_status_listener(&app_handle);
+                    // Sync autostart with config on startup
+                    let status = tauri::async_runtime::block_on(async {
+                        bridge::get_status(&bridge).await
+                    });
                     app.manage::<BridgeState>(bridge);
                     app.manage::<TrayState>(tray_state);
+                    if let Ok(status) = status {
+                        let manager = app_handle.autolaunch();
+                        let autostart_enabled = manager.is_enabled().unwrap_or(false);
+                        if status.launch_on_login != autostart_enabled {
+                            let result = if status.launch_on_login {
+                                manager.enable()
+                            } else {
+                                manager.disable()
+                            };
+                            match result {
+                                Ok(()) => log::info!("Synced autostart to config: {}", status.launch_on_login),
+                                Err(e) => log::warn!("Failed to sync autostart: {}", e),
+                            }
+                        }
+                    }
+
                     if let Some(window) = app_handle.get_webview_window("main") {
                         let _ = window.hide();
                     }
