@@ -8,10 +8,7 @@
 		"namefix": "bin/namefix.js"
 	},
 	"main": "dist/index.js",
-	"files": [
-		"dist",
-		"bin"
-	],
+	"files": ["dist", "bin"],
 	"engines": {
 		"node": ">=20",
 		"pnpm": ">=9"
@@ -35,13 +32,7 @@
 		"tauri:build": "npm --prefix apps/menu-bar run tauri:build",
 		"release": "semantic-release"
 	},
-	"keywords": [
-		"macos",
-		"screenshot",
-		"rename",
-		"tui",
-		"blessed"
-	],
+	"keywords": ["macos", "screenshot", "rename", "tui", "blessed"],
 	"author": "",
 	"repository": {
 		"type": "git",

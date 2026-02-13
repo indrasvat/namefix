@@ -44,10 +44,7 @@ export class WatchService implements IWatchService {
 		this.healthy = true;
 	}
 
-	private async handleNewFile(
-		full: string,
-		onAdd: (event: WatchEvent) => void,
-	): Promise<void> {
+	private async handleNewFile(full: string, onAdd: (event: WatchEvent) => void): Promise<void> {
 		try {
 			const st = await fsp.stat(full);
 			if (!st.isFile()) return;

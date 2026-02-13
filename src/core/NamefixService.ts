@@ -313,9 +313,7 @@ export class NamefixService {
 
 			const toStart = desiredDirs.filter((dir) => !this.watchers.has(dir));
 			if (toStart.length > 0) {
-				const results = await Promise.allSettled(
-					toStart.map((dir) => this.startWatcher(dir)),
-				);
+				const results = await Promise.allSettled(toStart.map((dir) => this.startWatcher(dir)));
 				for (const [i, result] of results.entries()) {
 					if (result.status !== 'rejected') continue;
 					const dir = toStart[i] as string;
@@ -332,8 +330,7 @@ export class NamefixService {
 					const reason = result.reason;
 					this.logger.error('Failed to start watcher', {
 						dir,
-						error:
-							reason instanceof Error ? reason.message : String(reason),
+						error: reason instanceof Error ? reason.message : String(reason),
 					});
 					this.emit('toast', {
 						level: 'warn',
