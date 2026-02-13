@@ -1,3 +1,10 @@
+## [0.3.1](https://github.com/indrasvat/namefix/compare/v0.3.0...v0.3.1) (2026-02-13)
+
+
+### Bug Fixes
+
+* **ci:** switch release workflow from npm to pnpm ([#18](https://github.com/indrasvat/namefix/issues/18)) ([11d87f7](https://github.com/indrasvat/namefix/commit/11d87f75e3b091da50fcf54d7c982fa2537177ae))
+
 # [0.3.0](https://github.com/indrasvat/namefix/compare/v0.2.7...v0.3.0) (2026-02-13)
 
 
