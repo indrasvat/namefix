@@ -110,7 +110,7 @@ function forwardEvents() {
 	);
 	emitterUnsubs.push(
 		service.on('config', (config) => {
-			safeStderr(`[EVENT] config changed`);
+			safeStderr('[EVENT] config changed');
 			sendMessage({ event: 'config', payload: config });
 		}),
 	);
