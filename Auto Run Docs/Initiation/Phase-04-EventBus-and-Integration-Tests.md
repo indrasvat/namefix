@@ -15,11 +15,16 @@ This phase ensures the new conversion events flow correctly through the entire E
     - After successful conversion: `this.eventBus.emit('file:converted', { from: srcPath, to: destPath, format: 'jpeg' })`
     - After successful trash: `this.eventBus.emit('file:trashed', { path: srcPath })`
 
-- [ ] Update the service bridge to forward conversion events to the Tauri frontend:
+- [x] Update the service bridge to forward conversion events to the Tauri frontend:
   - In `apps/menu-bar/src-tauri/resources/service-bridge.mjs`:
     - The bridge already forwards all `file` events via `service.on('file', ...)` — no changes needed there since conversion events are new `kind` values on the existing `ServiceFileEvent` type
     - Verify that the existing `forwardEvents()` function will correctly serialize the new `kind: 'converted'`, `kind: 'convert-error'`, and `kind: 'trashed'` events to the Tauri frontend (it should, since it forwards all `file` events generically)
     - If the bridge handler logic inspects `kind` values anywhere, update it to handle the new kinds gracefully
+  - **Verified**: No code changes needed. The entire bridge pipeline is generic:
+    - `service-bridge.mjs:81` forwards all `file` events without inspecting `kind`
+    - `bridge.rs` reader (line 71-77) deserializes JSON as generic `serde_json::Value`, no payload inspection
+    - `init_bridge` (line 241-244) emits to Tauri as `service://{name}` with payload passed through untouched
+    - `NamefixService.ts` already emits `converted`, `convert-error`, and `trashed` kinds via the `ServiceEventMap` emitter
 
 - [ ] Create `src/core/convert/ConversionPipeline.spec.ts` — integration tests for the full conversion pipeline:
   - This spec tests the `NamefixService` end-to-end with mocked filesystem and conversion services
