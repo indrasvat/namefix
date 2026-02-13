@@ -13,6 +13,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tauri = { version = "2.5.1", features = ["tray-icon", "image-png"] }
 tauri-plugin-autostart = { version = "2.5.1" }
+tauri-plugin-single-instance = { version = "2.4.0" }
 tokio = { version = "1.37", features = ["process", "sync", "io-util", "time"] }
 which = "6.0"
 anyhow = "1.0"
