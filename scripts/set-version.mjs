@@ -40,3 +40,8 @@ const tauri = JSON.parse(fs.readFileSync(tauriConfigPath, 'utf8'));
 tauri.version = semver;
 fs.writeFileSync(tauriConfigPath, `${JSON.stringify(tauri, null, 2)}\n`);
 console.log('Updated apps/menu-bar/src-tauri/tauri.conf.json');
+
+const cargoTomlPath = path.resolve('apps/menu-bar/src-tauri/Cargo.toml');
+const cargo = fs.readFileSync(cargoTomlPath, 'utf8');
+fs.writeFileSync(cargoTomlPath, cargo.replace(/^version = ".*"/m, `version = "${semver}"`));
+console.log('Updated apps/menu-bar/src-tauri/Cargo.toml');
