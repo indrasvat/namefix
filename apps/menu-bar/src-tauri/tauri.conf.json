@@ -1,34 +1,43 @@
 {
-	"$schema": "https://schema.tauri.app/config/2",
-	"productName": "Namefix Menu Bar",
-	"version": "0.3.2",
-	"identifier": "com.namefix.menubar",
-	"build": {
-		"beforeBuildCommand": "npm run build",
-		"beforeDevCommand": "npm run dev",
-		"devUrl": "http://localhost:5173",
-		"frontendDist": "../dist"
-	},
-	"app": {
-		"security": {
-			"csp": null,
-			"capabilities": ["menu-bar"]
-		},
-		"windows": [
-			{
-				"label": "main",
-				"title": "Namefix > Preferences",
-				"visible": true,
-				"width": 560,
-				"height": 580,
-				"minWidth": 480,
-				"minHeight": 480,
-				"resizable": true
-			}
-		]
-	},
-	"bundle": {
-		"resources": ["resources/service-bridge.mjs", "resources/dist", "resources/node_modules"],
-		"icon": ["icons/namefix.icns", "icons/namefix-icon-1024.png"]
-	}
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Namefix Menu Bar",
+  "version": "0.3.3",
+  "identifier": "com.namefix.menubar",
+  "build": {
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "security": {
+      "csp": null,
+      "capabilities": [
+        "menu-bar"
+      ]
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "Namefix > Preferences",
+        "visible": true,
+        "width": 560,
+        "height": 580,
+        "minWidth": 480,
+        "minHeight": 480,
+        "resizable": true
+      }
+    ]
+  },
+  "bundle": {
+    "resources": [
+      "resources/service-bridge.mjs",
+      "resources/dist",
+      "resources/node_modules"
+    ],
+    "icon": [
+      "icons/namefix.icns",
+      "icons/namefix-icon-1024.png"
+    ]
+  }
 }

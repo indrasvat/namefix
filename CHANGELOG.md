@@ -1,3 +1,10 @@
+## [0.3.3](https://github.com/indrasvat/namefix/compare/v0.3.2...v0.3.3) (2026-02-13)
+
+
+### Bug Fixes
+
+* **menu-bar:** resolve pnpm symlinks when bundling node_modules ([#21](https://github.com/indrasvat/namefix/issues/21)) ([3937e8d](https://github.com/indrasvat/namefix/commit/3937e8de7d88fe17ac6f8985b12994fb94cfbe15))
+
 ## [0.3.2](https://github.com/indrasvat/namefix/compare/v0.3.1...v0.3.2) (2026-02-13)
 
 
