@@ -1,1 +1,41 @@
-make ci
+#!/usr/bin/env bash
+
+bold='\033[1m'
+dim='\033[2m'
+green='\033[32m'
+red='\033[31m'
+cyan='\033[36m'
+yellow='\033[33m'
+reset='\033[0m'
+
+branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "detached")
+commit=$(git rev-parse --short HEAD)
+
+printf "\n"
+printf "${cyan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${reset}\n"
+printf "${bold}  namefix pre-push${reset}  ${dim}${branch} @ ${commit}${reset}\n"
+printf "${cyan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${reset}\n"
+printf "\n"
+
+start=$(date +%s)
+
+if make ci; then
+  end=$(date +%s)
+  elapsed=$((end - start))
+  printf "\n"
+  printf "${green}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${reset}\n"
+  printf "${green}${bold}  All checks passed${reset}${dim}  (${elapsed}s)${reset}\n"
+  printf "${green}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${reset}\n"
+  printf "\n"
+  exit 0
+else
+  end=$(date +%s)
+  elapsed=$((end - start))
+  printf "\n"
+  printf "${red}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${reset}\n"
+  printf "${red}${bold}  Push blocked${reset}  ${dim}CI failed after ${elapsed}s${reset}\n"
+  printf "${yellow}  Fix issues and try again.${reset}\n"
+  printf "${red}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${reset}\n"
+  printf "\n"
+  exit 1
+fi
