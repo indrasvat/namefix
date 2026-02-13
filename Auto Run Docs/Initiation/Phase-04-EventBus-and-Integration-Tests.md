@@ -26,7 +26,7 @@ This phase ensures the new conversion events flow correctly through the entire E
     - `init_bridge` (line 241-244) emits to Tauri as `service://{name}` with payload passed through untouched
     - `NamefixService.ts` already emits `converted`, `convert-error`, and `trashed` kinds via the `ServiceEventMap` emitter
 
-- [ ] Create `src/core/convert/ConversionPipeline.spec.ts` — integration tests for the full conversion pipeline:
+- [x] Create `src/core/convert/ConversionPipeline.spec.ts` — integration tests for the full conversion pipeline:
   - This spec tests the `NamefixService` end-to-end with mocked filesystem and conversion services
   - Setup:
     - Use `MemoryConfigStore` from existing `NamefixService.spec.ts` patterns (copy the helper class)
