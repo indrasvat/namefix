@@ -1,37 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TrashService } from './TrashService.js';
 
-vi.mock('node:child_process', () => {
-	const fn = vi.fn();
-	return { execFile: fn };
-});
-
 vi.mock('node:fs/promises', () => ({
-	default: { access: vi.fn() },
+	default: {
+		access: vi.fn(),
+		rename: vi.fn(),
+		copyFile: vi.fn(),
+		unlink: vi.fn(),
+	},
 }));
 
-import { execFile as execFileCb } from 'node:child_process';
+vi.mock('node:os', () => ({
+	default: { homedir: () => '/Users/test' },
+}));
+
 import fs from 'node:fs/promises';
 
-const mockExecFile = vi.mocked(execFileCb);
 const mockAccess = vi.mocked(fs.access);
-
-// biome-ignore lint/suspicious/noExplicitAny: required for mocking Node callback-style execFile
-type Cb = (...a: unknown[]) => any;
-
-function mockExecFileSuccess() {
-	mockExecFile.mockImplementation((_cmd: unknown, _args: unknown, cb: unknown) => {
-		(cb as Cb)(null, { stdout: '', stderr: '' });
-		return undefined as unknown as ReturnType<typeof execFileCb>;
-	});
-}
-
-function mockExecFileFailure(message: string) {
-	mockExecFile.mockImplementation((_cmd: unknown, _args: unknown, cb: unknown) => {
-		(cb as Cb)(new Error(message));
-		return undefined as unknown as ReturnType<typeof execFileCb>;
-	});
-}
+const mockRename = vi.mocked(fs.rename);
+const mockCopyFile = vi.mocked(fs.copyFile);
+const mockUnlink = vi.mocked(fs.unlink);
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -43,12 +31,18 @@ describe('TrashService', () => {
 
 		beforeEach(() => {
 			svc = new TrashService();
-			mockAccess.mockResolvedValue(undefined);
+			// File exists
+			mockAccess.mockImplementation(async (p) => {
+				const ps = String(p);
+				// Source file exists, trash destination does not
+				if (ps.startsWith('/Users/test/.Trash/')) {
+					throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+				}
+			});
+			mockRename.mockResolvedValue(undefined);
 		});
 
-		it('returns success when osascript succeeds', async () => {
-			mockExecFileSuccess();
-
+		it('returns success when rename succeeds', async () => {
 			const result = await svc.moveToTrash('/tmp/photo.heic');
 
 			expect(result.srcPath).toBe('/tmp/photo.heic');
@@ -56,25 +50,36 @@ describe('TrashService', () => {
 			expect(result.error).toBeUndefined();
 		});
 
-		it('calls osascript with correct AppleScript argument', async () => {
-			mockExecFileSuccess();
-
+		it('renames file to ~/.Trash/', async () => {
 			await svc.moveToTrash('/tmp/photo.heic');
 
-			expect(mockExecFile).toHaveBeenCalledWith(
-				'osascript',
-				['-e', 'tell application "Finder" to delete POSIX file "/tmp/photo.heic"'],
-				expect.any(Function),
-			);
+			expect(mockRename).toHaveBeenCalledWith('/tmp/photo.heic', '/Users/test/.Trash/photo.heic');
 		});
 
-		it('returns failure with error when osascript fails', async () => {
-			mockExecFileFailure('osascript: permission denied');
+		it('returns failure with error when rename fails', async () => {
+			mockRename.mockRejectedValue(new Error('EPERM: operation not permitted'));
 
 			const result = await svc.moveToTrash('/tmp/photo.heic');
 
 			expect(result.success).toBe(false);
-			expect(result.error).toContain('permission denied');
+			expect(result.error).toContain('operation not permitted');
+		});
+
+		it('falls back to copy+unlink on EXDEV (cross-volume)', async () => {
+			mockRename.mockRejectedValue(
+				Object.assign(new Error('EXDEV: cross-device link not permitted'), { code: 'EXDEV' }),
+			);
+			mockCopyFile.mockResolvedValue(undefined);
+			mockUnlink.mockResolvedValue(undefined);
+
+			const result = await svc.moveToTrash('/Volumes/ext/photo.heic');
+
+			expect(result.success).toBe(true);
+			expect(mockCopyFile).toHaveBeenCalledWith(
+				'/Volumes/ext/photo.heic',
+				'/Users/test/.Trash/photo.heic',
+			);
+			expect(mockUnlink).toHaveBeenCalledWith('/Volumes/ext/photo.heic');
 		});
 
 		it('throws error when file does not exist', async () => {
@@ -83,7 +88,7 @@ describe('TrashService', () => {
 			);
 
 			await expect(svc.moveToTrash('/tmp/nonexistent.heic')).rejects.toThrow('ENOENT');
-			expect(mockExecFile).not.toHaveBeenCalled();
+			expect(mockRename).not.toHaveBeenCalled();
 		});
 	});
 });

@@ -22,20 +22,32 @@ export class NamefixApp {
 
 	async start(overrides?: NamefixOverrides): Promise<void> {
 		this.service = new NamefixService();
+
+		// 1. Screen appears INSTANTLY
+		this.ui = new ScreenManager();
+		this.ui.showToast('Starting...', 'info');
+
+		// 2. Init config (fast disk I/O, typically <50ms)
 		const cfg = await this.service.init(overrides);
 		this.currentConfig = cfg;
 
-		this.ui = new ScreenManager();
+		// 3. Register keybindings after config is ready (handlers depend on config)
+		this.registerKeybindings();
+
+		// 4. Apply config to UI
 		if (cfg.theme) {
 			this.ui.theme.set(cfg.theme);
 			this.ui.applyTheme();
 		}
 		this.ui.setDryRun(cfg.dryRun);
-		this.ui.showToast(`Ready • Dry-run: ${cfg.dryRun ? 'On' : 'Off'}`, 'info');
 
+		// 5. Wire events BEFORE start so we catch the initial status emit
 		this.bindServiceEvents();
-		await this.service.start();
-		this.registerKeybindings();
+
+		// 6. Start watchers in background — don't block the UI
+		this.service.start().catch(() => {
+			this.ui?.showToast('Watcher startup failed', 'error');
+		});
 	}
 
 	async stop(): Promise<void> {

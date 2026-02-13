@@ -5,7 +5,7 @@ mod ipc;
 mod tray;
 
 use bridge::{init_bridge, BridgeState};
-use tauri::{Manager, WindowEvent};
+use tauri::{Manager, RunEvent, WindowEvent};
 use ipc::{
     add_watch_dir,
     delete_profile,
@@ -88,6 +88,14 @@ fn main() {
                 Err(err) => Err(err.into()),
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running Namefix menu bar");
+        .build(tauri::generate_context!())
+        .expect("error while building Namefix menu bar")
+        .run(|app_handle, event| {
+            if let RunEvent::Exit = event {
+                // Gracefully shut down the Node sidecar before the process exits
+                if let Some(bridge) = app_handle.try_state::<BridgeState>() {
+                    tauri::async_runtime::block_on(bridge.shutdown());
+                }
+            }
+        });
 }

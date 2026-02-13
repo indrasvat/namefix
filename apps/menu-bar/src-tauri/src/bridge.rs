@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::sync::{atomic::{AtomicU64, Ordering}, Arc};
+use std::sync::{atomic::{AtomicBool, AtomicU64, Ordering}, Arc};
 use tauri::async_runtime::{self, Mutex};
 use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Emitter, Manager};
@@ -23,6 +23,7 @@ struct Inner {
     stdin: Mutex<ChildStdin>,
     pending: Mutex<HashMap<u64, oneshot::Sender<Result<Value, String>>>>,
     counter: AtomicU64,
+    dead: AtomicBool,
     events: broadcast::Sender<BridgeEvent>,
 }
 
@@ -49,6 +50,7 @@ impl NodeBridge {
             stdin: Mutex::new(stdin),
             pending: Mutex::new(HashMap::new()),
             counter: AtomicU64::new(1),
+            dead: AtomicBool::new(false),
             events: events_tx.clone(),
         });
 
@@ -72,6 +74,31 @@ impl NodeBridge {
                     Ok(message) => {
                         if let Some(event) = message.get("event").and_then(|v| v.as_str()) {
                             let payload = message.get("payload").cloned().unwrap_or(Value::Null);
+                            match event {
+                                "file" => {
+                                    let kind = payload.get("kind").and_then(|v| v.as_str()).unwrap_or("?");
+                                    let file = payload.get("file").and_then(|v| v.as_str()).unwrap_or("?");
+                                    let target = payload.get("target").and_then(|v| v.as_str());
+                                    if let Some(t) = target {
+                                        log::info!("File event: {} {} → {}", kind, file, t);
+                                    } else {
+                                        log::info!("File event: {} {}", kind, file);
+                                    }
+                                }
+                                "toast" => {
+                                    let level = payload.get("level").and_then(|v| v.as_str()).unwrap_or("info");
+                                    let msg = payload.get("message").and_then(|v| v.as_str()).unwrap_or("?");
+                                    log::info!("Toast [{}]: {}", level, msg);
+                                }
+                                "status" => {
+                                    let running = payload.get("running").and_then(|v| v.as_bool()).unwrap_or(false);
+                                    let dirs = payload.get("directories").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
+                                    log::info!("Status: running={}, dirs={}", running, dirs);
+                                }
+                                _ => {
+                                    log::debug!("Bridge event: {}", event);
+                                }
+                            }
                             let _ = events_tx.send(BridgeEvent {
                                 name: event.to_string(),
                                 payload,
@@ -105,6 +132,7 @@ impl NodeBridge {
 
             // Reader loop exited - sidecar crashed or EOF
             log::error!("Bridge sidecar stdout reader exited unexpectedly");
+            inner.dead.store(true, Ordering::SeqCst);
 
             // Notify all pending requests
             {
@@ -137,6 +165,9 @@ impl NodeBridge {
     }
 
     pub async fn invoke<T: DeserializeOwned>(&self, method: &str, params: Value) -> Result<T, String> {
+        if self.0.dead.load(Ordering::SeqCst) {
+            return Err("Background service disconnected. Please restart the app.".to_string());
+        }
         let id = self.0.counter.fetch_add(1, Ordering::SeqCst);
         log::debug!("Bridge invoke: id={}, method={}", id, method);
         let (tx, rx) = oneshot::channel();
@@ -151,32 +182,53 @@ impl NodeBridge {
         });
         if let Err(err) = self.write_request(&payload).await {
             log::error!("Bridge write_request failed: {}", err);
+            self.0.dead.store(true, Ordering::SeqCst);
             let mut pending = self.0.pending.lock().await;
             if let Some(tx) = pending.remove(&id) {
-                let _ = tx.send(Err(err.to_string()));
+                let _ = tx.send(Err("Background service disconnected. Please restart the app.".to_string()));
             }
-            return Err(err.to_string());
+            return Err("Background service disconnected. Please restart the app.".to_string());
         }
         log::debug!("Bridge request sent, waiting for response...");
 
-        match rx.await {
-            Ok(Ok(value)) => {
+        match tokio::time::timeout(std::time::Duration::from_secs(10), rx).await {
+            Ok(Ok(Ok(value))) => {
                 log::debug!("Bridge response received: {:?}", value);
                 serde_json::from_value::<T>(value).map_err(|err| err.to_string())
             }
-            Ok(Err(err)) => {
+            Ok(Ok(Err(err))) => {
                 log::error!("Bridge response error: {}", err);
                 Err(err)
             }
-            Err(_) => {
+            Ok(Err(_)) => {
                 log::error!("Bridge channel closed");
                 Err("bridge channel closed".to_string())
+            }
+            Err(_) => {
+                log::error!("Bridge request timed out: method={}", method);
+                let mut pending = self.0.pending.lock().await;
+                pending.remove(&id);
+                Err("Bridge request timed out".to_string())
             }
         }
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<BridgeEvent> {
         self.0.events.subscribe()
+    }
+
+    /// Gracefully shut down the Node sidecar. Sends "shutdown" command and waits
+    /// briefly for the child process to exit before forcibly killing it.
+    pub async fn shutdown(&self) {
+        // Try graceful shutdown via the protocol
+        let _ = self.invoke::<Value>("shutdown", Value::Null).await;
+
+        // Give the sidecar a moment to flush and exit
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
+        // Force-kill if still alive
+        let mut child = self.0.child.lock().await;
+        let _ = child.kill().await;
     }
 }
 

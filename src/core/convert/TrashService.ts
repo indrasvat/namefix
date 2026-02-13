@@ -1,8 +1,6 @@
-import { execFile as execFileCb } from 'node:child_process';
 import fs from 'node:fs/promises';
-import { promisify } from 'node:util';
-
-const execFile = promisify(execFileCb);
+import os from 'node:os';
+import path from 'node:path';
 
 export type TrashResult = {
 	srcPath: string;
@@ -15,14 +13,47 @@ export class TrashService {
 		await fs.access(filePath);
 
 		try {
-			await execFile('osascript', [
-				'-e',
-				`tell application "Finder" to delete POSIX file "${filePath}"`,
-			]);
+			const trashDir = path.join(os.homedir(), '.Trash');
+			const basename = path.basename(filePath);
+			let dest = path.join(trashDir, basename);
+
+			// Handle name collisions in Trash
+			let n = 2;
+			while (await fileExists(dest)) {
+				const ext = path.extname(basename);
+				const name = basename.slice(0, -ext.length || undefined);
+				dest = path.join(trashDir, `${name} ${n}${ext}`);
+				n++;
+			}
+
+			try {
+				await fs.rename(filePath, dest);
+			} catch (renameErr: unknown) {
+				// fs.rename fails across filesystems (e.g. external volumes); fall back to copy + delete
+				if (isExdev(renameErr)) {
+					await fs.copyFile(filePath, dest);
+					await fs.unlink(filePath);
+				} else {
+					throw renameErr;
+				}
+			}
 			return { srcPath: filePath, success: true };
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Unknown error moving file to Trash';
 			return { srcPath: filePath, success: false, error: message };
 		}
+	}
+}
+
+function isExdev(err: unknown): boolean {
+	return err instanceof Error && (err as NodeJS.ErrnoException).code === 'EXDEV';
+}
+
+async function fileExists(p: string): Promise<boolean> {
+	try {
+		await fs.access(p);
+		return true;
+	} catch {
+		return false;
 	}
 }

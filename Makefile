@@ -1,4 +1,4 @@
-.PHONY: help all build test lint fmt check ci clean dev dev-app run-app release stage-resources
+.PHONY: help all build test lint fmt check ci clean dev dev-app run-app release stage-resources install-hooks
 
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
@@ -68,6 +68,15 @@ clean: ## Clean build artifacts
 	@rm -rf coverage
 	@rm -rf apps/menu-bar/src-tauri/resources/dist
 	@rm -rf apps/menu-bar/src-tauri/resources/node_modules
+
+install-hooks: ## Install git hooks via husky (idempotent)
+	@if [ -f .husky/_/husky.sh ] || [ -d .husky/_ ]; then \
+		printf "\033[32mHusky hooks already installed.\033[0m\n"; \
+	else \
+		printf "\033[33mInstalling husky hooks...\033[0m\n"; \
+		$(PNPM) exec husky; \
+		printf "\033[32mHooks installed.\033[0m\n"; \
+	fi
 
 release: ## Run semantic-release dry-run
 	@printf "\033[33mRunning semantic-release dry-run...\033[0m\n"

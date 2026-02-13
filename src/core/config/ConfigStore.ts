@@ -13,7 +13,7 @@ const DEFAULT_CONFIG: IConfig = {
 	prefix: 'Screenshot',
 	include: ['Screenshot*'],
 	exclude: [],
-	dryRun: true,
+	dryRun: false,
 	theme: 'default',
 	launchOnLogin: false,
 	profiles: [...DEFAULT_PROFILES],

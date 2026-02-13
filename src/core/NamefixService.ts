@@ -1,4 +1,5 @@
 import path from 'node:path';
+import os from 'node:os';
 import fs from 'node:fs/promises';
 import type {
 	IConfig,
@@ -310,9 +311,32 @@ export class NamefixService {
 				return;
 			}
 
-			for (const dir of desiredDirs) {
-				if (this.watchers.has(dir)) continue;
-				await this.startWatcher(dir);
+			const toStart = desiredDirs.filter((dir) => !this.watchers.has(dir));
+			if (toStart.length > 0) {
+				const results = await Promise.allSettled(toStart.map((dir) => this.startWatcher(dir)));
+				for (const [i, result] of results.entries()) {
+					if (result.status !== 'rejected') continue;
+					const dir = toStart[i] as string;
+					// Clean up map entry left by failed startWatcher
+					const failedWatcher = this.watchers.get(dir);
+					if (failedWatcher) {
+						this.watchers.delete(dir);
+						try {
+							await failedWatcher.stop?.();
+						} catch {
+							// Ignore cleanup errors
+						}
+					}
+					const reason = result.reason;
+					this.logger.error('Failed to start watcher', {
+						dir,
+						error: reason instanceof Error ? reason.message : String(reason),
+					});
+					this.emit('toast', {
+						level: 'warn',
+						message: `Could not watch ${path.basename(dir)}`,
+					});
+				}
 			}
 			this.emitStatus();
 		});
@@ -832,7 +856,7 @@ export class NamefixService {
 		if (!this.config) return;
 		const dirs = this.getWatchDirs(this.config);
 		this.emit('status', {
-			running: this.running && this.watchers.size > 0,
+			running: this.running,
 			directories: dirs,
 			dryRun: this.config.dryRun,
 			launchOnLogin: this.config.launchOnLogin,
@@ -859,7 +883,11 @@ export class NamefixService {
 	}
 
 	private normalizePath(dir: string): string {
-		return path.resolve(dir.trim());
+		let d = dir.trim();
+		if (d.startsWith('~/') || d === '~') {
+			d = path.join(os.homedir(), d.slice(1));
+		}
+		return path.resolve(d);
 	}
 
 	// Health monitoring methods
