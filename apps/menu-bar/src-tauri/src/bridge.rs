@@ -314,6 +314,8 @@ pub struct Profile {
     pub template: String,
     pub prefix: String,
     pub priority: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
 }
 
 pub async fn get_profiles(bridge: &BridgeState) -> Result<Vec<Profile>, String> {
