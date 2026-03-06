@@ -21,6 +21,8 @@ import { ConversionService } from './convert/ConversionService.js';
 import { TrashService } from './convert/TrashService.js';
 import type { ServiceEventMap, ServiceStatus } from '../types/service.js';
 import { TypedEmitter } from '../utils/TypedEmitter.js';
+import { delay } from '../utils/async.js';
+import { pathExists } from '../utils/fs.js';
 
 /**
  * Shared orchestrator responsible for configuration, directory watching, and rename lifecycles.
@@ -968,15 +970,3 @@ export class NamefixService {
 	}
 }
 
-async function pathExists(p: string): Promise<boolean> {
-	try {
-		await fs.access(p);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-function delay(ms: number) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
