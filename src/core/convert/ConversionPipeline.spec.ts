@@ -13,6 +13,7 @@ import type { ServiceFileEvent, ServiceToastEvent } from '../../types/service.js
 import { NamefixService } from '../NamefixService.js';
 import type { ConversionService } from './ConversionService.js';
 import type { TrashService } from './TrashService.js';
+import { delay } from '../../utils/async.js';
 
 class MemoryConfigStore implements IConfigStore {
 	private cfg: IConfig;
@@ -177,7 +178,7 @@ describe('ConversionPipeline integration', () => {
 			mtimeMs: Date.now(),
 			size: 100,
 		});
-		await new Promise((resolve) => setTimeout(resolve, 50));
+		await delay(50);
 	}
 
 	it('HEIC file triggers conversion pipeline', async () => {

@@ -7,6 +7,7 @@ import type { ServiceStatus, ServiceFileEvent, ServiceToastEvent } from '../type
 import { NamefixService } from './NamefixService.js';
 import type { ConversionService } from './convert/ConversionService.js';
 import type { TrashService } from './convert/TrashService.js';
+import { delay } from '../utils/async.js';
 
 class MemoryConfigStore implements IConfigStore {
 	private cfg: IConfig;
@@ -201,7 +202,7 @@ describe('NamefixService', () => {
 		service.on('status', (status) => statusUpdates.push(status));
 
 		await service.setWatchDirs([newDir]);
-		await new Promise((resolve) => setTimeout(resolve, 50));
+		await delay(50);
 
 		expect(previousWatcher.stop).toHaveBeenCalledTimes(1);
 		expect(previousWatcher.dispose).toHaveBeenCalledTimes(1);
@@ -242,7 +243,7 @@ describe('NamefixService', () => {
 			size: 10,
 		});
 
-		await new Promise((resolve) => setTimeout(resolve, 25));
+		await delay(25);
 		expect(events).toHaveLength(1);
 		expect(events.at(0)?.kind).toBe('preview');
 	});
@@ -283,7 +284,7 @@ describe('NamefixService', () => {
 			size: 10,
 		});
 
-		await new Promise((resolve) => setTimeout(resolve, 25));
+		await delay(25);
 		expect(events).toHaveLength(1);
 		expect(events[0]?.kind).toBe('preview');
 		expect(mockConverter.convert).not.toHaveBeenCalled();
@@ -356,7 +357,7 @@ describe('NamefixService', () => {
 				size: 100,
 			});
 
-			await new Promise((resolve) => setTimeout(resolve, 50));
+			await delay(50);
 
 			expect(mockConverter.convert).toHaveBeenCalledWith(srcPath, { outputFormat: 'jpeg' });
 			const converted = events.find((e) => e.kind === 'converted');
@@ -390,7 +391,7 @@ describe('NamefixService', () => {
 				size: 100,
 			});
 
-			await new Promise((resolve) => setTimeout(resolve, 25));
+			await delay(25);
 			expect(events).toHaveLength(1);
 			const ev = events[0];
 			expect(ev?.kind).toBe('preview');
@@ -424,7 +425,7 @@ describe('NamefixService', () => {
 				size: 100,
 			});
 
-			await new Promise((resolve) => setTimeout(resolve, 50));
+			await delay(50);
 
 			expect(events).toHaveLength(1);
 			const ev = events[0];
@@ -470,7 +471,7 @@ describe('NamefixService', () => {
 				size: 100,
 			});
 
-			await new Promise((resolve) => setTimeout(resolve, 50));
+			await delay(50);
 
 			const converted = fileEvents.find((e) => e.kind === 'converted');
 			expect(converted).toBeDefined();

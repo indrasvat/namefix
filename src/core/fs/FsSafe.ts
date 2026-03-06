@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { delay } from '../../utils/async.js';
 
 export class FsSafe {
 	/**
@@ -66,10 +67,6 @@ export class FsSafe {
 			}
 		}
 	}
-}
-
-function delay(ms: number) {
-	return new Promise((res) => setTimeout(res, ms));
 }
 
 function isBusyError(err: unknown): err is NodeJS.ErrnoException {
