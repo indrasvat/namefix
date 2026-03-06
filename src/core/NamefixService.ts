@@ -182,9 +182,10 @@ export class NamefixService {
 	 */
 	async reorderProfiles(orderedIds: string[]): Promise<IConfig> {
 		const profiles = [...this.getProfiles()];
+		const profileMap = new Map(profiles.map((p) => [p.id, p]));
 		// Update priorities based on the new order
 		for (let i = 0; i < orderedIds.length; i++) {
-			const profile = profiles.find((p) => p.id === orderedIds[i]);
+			const profile = profileMap.get(orderedIds[i]);
 			if (profile) {
 				profile.priority = i + 1;
 			}
