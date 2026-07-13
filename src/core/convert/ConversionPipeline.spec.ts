@@ -1,19 +1,19 @@
+import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import fs from 'node:fs/promises';
-import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
 	IConfig,
 	IConfigStore,
+	ILogger,
 	IWatchService,
 	WatchEvent,
-	ILogger,
 } from '../../types/index.js';
 import type { ServiceFileEvent, ServiceToastEvent } from '../../types/service.js';
+import { delay } from '../../utils/async.js';
 import { NamefixService } from '../NamefixService.js';
 import type { ConversionService } from './ConversionService.js';
 import type { TrashService } from './TrashService.js';
-import { delay } from '../../utils/async.js';
 
 class MemoryConfigStore implements IConfigStore {
 	private cfg: IConfig;
@@ -178,7 +178,6 @@ describe('ConversionPipeline integration', () => {
 			mtimeMs: Date.now(),
 			size: 100,
 		});
-		await delay(50);
 	}
 
 	it('HEIC file triggers conversion pipeline', async () => {
@@ -200,6 +199,9 @@ describe('ConversionPipeline integration', () => {
 		const watcher = firstWatcher();
 		await triggerFile(watcher, watchDir, 'IMG_1234.heic');
 
+		await vi.waitFor(() => {
+			expect(mockTrasher.moveToTrash).toHaveBeenCalledWith(srcPath);
+		});
 		expect(mockConverter.canConvert).toHaveBeenCalledWith('.heic');
 		expect(mockConverter.convert).toHaveBeenCalledWith(srcPath, { outputFormat: 'jpeg' });
 		expect(mockTrasher.moveToTrash).toHaveBeenCalledWith(srcPath);
@@ -250,6 +252,9 @@ describe('ConversionPipeline integration', () => {
 		const watcher = firstWatcher();
 		await triggerFile(watcher, watchDir, 'video.mp4');
 
+		await vi.waitFor(() => {
+			expect(fileEvents.some((e) => e.kind === 'skipped')).toBe(true);
+		});
 		expect(mockConverter.convert).not.toHaveBeenCalled();
 
 		const skipped = fileEvents.find((e) => e.kind === 'skipped');
@@ -268,6 +273,9 @@ describe('ConversionPipeline integration', () => {
 		const watcher = firstWatcher();
 		await triggerFile(watcher, watchDir, 'IMG_1234.heic');
 
+		await vi.waitFor(() => {
+			expect(fileEvents.some((e) => e.kind === 'preview')).toBe(true);
+		});
 		expect(mockConverter.convert).not.toHaveBeenCalled();
 
 		const preview = fileEvents.find((e) => e.kind === 'preview');
@@ -290,6 +298,9 @@ describe('ConversionPipeline integration', () => {
 		const watcher = firstWatcher();
 		await triggerFile(watcher, watchDir, 'IMG_1234.heic');
 
+		await vi.waitFor(() => {
+			expect(fileEvents.some((e) => e.kind === 'convert-error')).toBe(true);
+		});
 		const errEvent = fileEvents.find((e) => e.kind === 'convert-error');
 		expect(errEvent).toBeDefined();
 		if (errEvent?.kind === 'convert-error') {
@@ -322,6 +333,10 @@ describe('ConversionPipeline integration', () => {
 
 		const watcher = firstWatcher();
 		await triggerFile(watcher, watchDir, 'IMG_1234.heic');
+
+		await vi.waitFor(() => {
+			expect(toastEvents.some((e) => e.level === 'warn')).toBe(true);
+		});
 
 		// Conversion succeeded
 		const converted = fileEvents.find((e) => e.kind === 'converted');
@@ -379,6 +394,9 @@ describe('ConversionPipeline integration', () => {
 		await triggerFile(watcher, watchDir, 'IMG_1234.heic');
 
 		// Step 1: Conversion happened
+		await vi.waitFor(() => {
+			expect(fileEvents.some((e) => e.kind === 'trashed')).toBe(true);
+		});
 		expect(mockConverter.convert).toHaveBeenCalledWith(srcPath, { outputFormat: 'jpeg' });
 		const converted = fileEvents.find((e) => e.kind === 'converted');
 		expect(converted).toBeDefined();

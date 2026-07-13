@@ -1,13 +1,13 @@
+import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import fs from 'node:fs/promises';
-import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import type { IConfig, IConfigStore, IWatchService, WatchEvent, ILogger } from '../types/index.js';
-import type { ServiceStatus, ServiceFileEvent, ServiceToastEvent } from '../types/service.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { IConfig, IConfigStore, ILogger, IWatchService, WatchEvent } from '../types/index.js';
+import type { ServiceFileEvent, ServiceStatus, ServiceToastEvent } from '../types/service.js';
+import { delay } from '../utils/async.js';
 import { NamefixService } from './NamefixService.js';
 import type { ConversionService } from './convert/ConversionService.js';
 import type { TrashService } from './convert/TrashService.js';
-import { delay } from '../utils/async.js';
 
 class MemoryConfigStore implements IConfigStore {
 	private cfg: IConfig;
@@ -66,7 +66,11 @@ class MemoryConfigStore implements IConfigStore {
 
 class StubWatcher implements IWatchService {
 	readonly start = vi.fn(async (handler: (event: WatchEvent) => void) => {
+		if (this.startError) {
+			throw this.startError;
+		}
 		this.handler = handler;
+		this.healthy = true;
 	});
 	readonly stop = vi.fn(async () => {
 		this.stopped = true;
@@ -75,11 +79,30 @@ class StubWatcher implements IWatchService {
 		this.disposed = true;
 	});
 	handler: ((event: WatchEvent) => void) | null = null;
+	private errorHandlers = new Set<(error: Error, directory: string) => void>();
 	stopped = false;
 	disposed = false;
+	healthy = true;
+	startError: Error | null = null;
 
 	trigger(event: WatchEvent) {
 		this.handler?.(event);
+	}
+
+	emitError(error: Error, directory: string) {
+		this.healthy = false;
+		for (const handler of this.errorHandlers) {
+			handler(error, directory);
+		}
+	}
+
+	isHealthy(): boolean {
+		return this.healthy;
+	}
+
+	onError(handler: (error: Error, directory: string) => void): () => void {
+		this.errorHandlers.add(handler);
+		return () => this.errorHandlers.delete(handler);
 	}
 }
 
@@ -117,7 +140,9 @@ describe('NamefixService', () => {
 	let tempRoot: string;
 	let configStore: MemoryConfigStore;
 	const watchers = new Map<string, StubWatcher>();
+	let createdWatchers: StubWatcher[] = [];
 	let createdDirs: string[] = [];
+	let configureWatcher: ((watcher: StubWatcher, dir: string) => void) | null = null;
 	let mockConverter: { convert: ReturnType<typeof vi.fn>; canConvert: ReturnType<typeof vi.fn> };
 	let mockTrasher: { moveToTrash: ReturnType<typeof vi.fn> };
 
@@ -126,7 +151,9 @@ describe('NamefixService', () => {
 		process.env.NAMEFIX_HOME = path.join(tempRoot, 'config');
 		process.env.NAMEFIX_LOGS = path.join(tempRoot, 'logs');
 		watchers.clear();
+		createdWatchers = [];
 		createdDirs = [];
+		configureWatcher = null;
 		mockConverter = { convert: vi.fn(), canConvert: vi.fn().mockReturnValue(true) };
 		mockTrasher = { moveToTrash: vi.fn().mockResolvedValue({ srcPath: '', success: true }) };
 		const dirA = await fs.mkdtemp(path.join(tempRoot, 'watch-a-'));
@@ -153,7 +180,9 @@ describe('NamefixService', () => {
 			trasher: mockTrasher as unknown as TrashService,
 			watcherFactory: (dir) => {
 				const watcher = new StubWatcher();
+				configureWatcher?.(watcher, dir);
 				watchers.set(dir, watcher);
+				createdWatchers.push(watcher);
 				createdDirs.push(dir);
 				return watcher;
 			},
@@ -202,11 +231,12 @@ describe('NamefixService', () => {
 		service.on('status', (status) => statusUpdates.push(status));
 
 		await service.setWatchDirs([newDir]);
-		await delay(50);
+		await vi.waitFor(() => {
+			expect(createdDirs.filter((dir) => dir === newDir).length).toBe(1);
+		});
 
 		expect(previousWatcher.stop).toHaveBeenCalledTimes(1);
 		expect(previousWatcher.dispose).toHaveBeenCalledTimes(1);
-		expect(createdDirs.filter((dir) => dir === newDir).length).toBe(1);
 		const newWatcher = watchers.get(newDir);
 		if (newWatcher) {
 			expect(newWatcher.start).toHaveBeenCalledTimes(1);
@@ -243,7 +273,9 @@ describe('NamefixService', () => {
 			size: 10,
 		});
 
-		await delay(25);
+		await vi.waitFor(() => {
+			expect(events).toHaveLength(1);
+		});
 		expect(events).toHaveLength(1);
 		expect(events.at(0)?.kind).toBe('preview');
 	});
@@ -259,6 +291,267 @@ describe('NamefixService', () => {
 			expect(watcher.stop).toHaveBeenCalled();
 			expect(watcher.dispose).toHaveBeenCalled();
 		}
+	});
+
+	it('replaces a watcher immediately after it reports an error', async () => {
+		const service = createService();
+		await service.init();
+		await service.start();
+
+		const dir = Array.from(watchers.keys())[0];
+		expect(dir).toBeDefined();
+		if (!dir) throw new Error('dir missing');
+		const failedWatcher = watchers.get(dir);
+		expect(failedWatcher).toBeDefined();
+		if (!failedWatcher) throw new Error('watcher missing');
+
+		const toasts: ServiceToastEvent[] = [];
+		service.on('toast', (event) => toasts.push(event));
+
+		failedWatcher.emitError(new Error('fsevents stream closed'), dir);
+		await vi.waitFor(() => {
+			expect(createdWatchers.length).toBe(3);
+		});
+
+		const replacement = watchers.get(dir);
+		expect(replacement).toBeDefined();
+		expect(replacement).not.toBe(failedWatcher);
+		expect(failedWatcher.stop).toHaveBeenCalledTimes(1);
+		expect(failedWatcher.dispose).toHaveBeenCalledTimes(1);
+		expect(replacement?.start).toHaveBeenCalledTimes(1);
+		expect(toasts.some((event) => event.message.includes('Watcher recovered'))).toBe(true);
+	});
+
+	describe('watcher recovery state machine', () => {
+		async function checkWatcherHealth(service: NamefixService) {
+			await (
+				service as unknown as {
+					checkWatcherHealth(): Promise<void>;
+				}
+			).checkWatcherHealth();
+		}
+
+		function activeWatchers(service: NamefixService): Map<string, StubWatcher> {
+			return (
+				service as unknown as {
+					watchers: Map<string, StubWatcher>;
+				}
+			).watchers;
+		}
+
+		function firstStartedWatcher(): { dir: string; watcher: StubWatcher } {
+			const dir = Array.from(watchers.keys())[0];
+			if (!dir) throw new Error('dir missing');
+			const watcher = watchers.get(dir);
+			if (!watcher) throw new Error('watcher missing');
+			return { dir, watcher };
+		}
+
+		async function restartAttempts(service: NamefixService): Promise<Map<string, number>> {
+			return (
+				service as unknown as {
+					watcherRestartAttempts: Map<string, number>;
+				}
+			).watcherRestartAttempts;
+		}
+
+		it('ignores stale error callbacks from a watcher that has already been replaced', async () => {
+			const service = createService();
+			await service.init();
+			await service.start();
+
+			const { dir, watcher: original } = firstStartedWatcher();
+			original.emitError(new Error('stream closed'), dir);
+			await vi.waitFor(() => {
+				expect(createdWatchers.length).toBe(3);
+			});
+
+			const replacement = watchers.get(dir);
+			expect(replacement).toBeDefined();
+			original.emitError(new Error('late native callback'), dir);
+			await delay(25);
+
+			expect(createdWatchers.length).toBe(3);
+			expect(watchers.get(dir)).toBe(replacement);
+		});
+
+		it('coalesces duplicate error callbacks from the same failed watcher', async () => {
+			const service = createService();
+			await service.init();
+			await service.start();
+
+			const { dir, watcher: original } = firstStartedWatcher();
+			original.emitError(new Error('first stream error'), dir);
+			original.emitError(new Error('duplicate stream error'), dir);
+
+			await vi.waitFor(() => {
+				expect(createdWatchers.length).toBe(3);
+			});
+			await delay(25);
+
+			const replacement = activeWatchers(service).get(dir);
+			expect(replacement).toBeDefined();
+			expect(replacement).not.toBe(original);
+			expect(original.stop).toHaveBeenCalledTimes(1);
+			expect(createdWatchers.length).toBe(3);
+		});
+
+		it('recovers a desired directory that has no live watcher after a failed restart', async () => {
+			let failNextRestart = true;
+			configureWatcher = (watcher) => {
+				if (createdWatchers.length >= 2 && failNextRestart) {
+					failNextRestart = false;
+					watcher.startError = new Error('watch descriptor exhausted');
+				}
+			};
+
+			const service = createService();
+			await service.init();
+			await service.start();
+
+			const { dir, watcher: original } = firstStartedWatcher();
+			original.emitError(new Error('fsevents stream closed'), dir);
+
+			await vi.waitFor(() => {
+				expect(createdWatchers.length).toBe(3);
+			});
+			expect(original.stop).toHaveBeenCalledTimes(1);
+			expect(activeWatchers(service).has(dir)).toBe(false);
+
+			await checkWatcherHealth(service);
+
+			const replacement = activeWatchers(service).get(dir);
+			expect(replacement).toBeDefined();
+			expect(replacement).not.toBe(original);
+			expect(replacement?.start).toHaveBeenCalledTimes(1);
+		});
+
+		it('resets restart attempts after a later recovery succeeds', async () => {
+			let failNextRestart = true;
+			configureWatcher = (watcher) => {
+				if (createdWatchers.length >= 2 && failNextRestart) {
+					failNextRestart = false;
+					watcher.startError = new Error('temporary watch descriptor exhaustion');
+				}
+			};
+
+			const service = createService();
+			await service.init();
+			await service.start();
+
+			const { dir, watcher: original } = firstStartedWatcher();
+			original.emitError(new Error('fsevents stream closed'), dir);
+
+			await vi.waitFor(() => {
+				expect(activeWatchers(service).has(dir)).toBe(false);
+			});
+			expect((await restartAttempts(service)).get(dir)).toBe(1);
+
+			await checkWatcherHealth(service);
+
+			expect(activeWatchers(service).has(dir)).toBe(true);
+			expect((await restartAttempts(service)).get(dir)).toBe(2);
+
+			await checkWatcherHealth(service);
+
+			expect((await restartAttempts(service)).get(dir)).toBe(0);
+		});
+
+		it('bounds watchers that repeatedly open and immediately report errors', async () => {
+			const service = createService();
+			await service.init();
+			await service.start();
+
+			const toasts: ServiceToastEvent[] = [];
+			service.on('toast', (event) => toasts.push(event));
+
+			const { dir, watcher: original } = firstStartedWatcher();
+			original.emitError(new Error('stream closed 1'), dir);
+			await vi.waitFor(() => {
+				expect(createdWatchers.length).toBe(3);
+			});
+
+			activeWatchers(service).get(dir)?.emitError(new Error('stream closed 2'), dir);
+			await vi.waitFor(() => {
+				expect(createdWatchers.length).toBe(4);
+			});
+
+			activeWatchers(service).get(dir)?.emitError(new Error('stream closed 3'), dir);
+			await vi.waitFor(() => {
+				expect(createdWatchers.length).toBe(5);
+			});
+
+			activeWatchers(service).get(dir)?.emitError(new Error('stream closed 4'), dir);
+			await vi.waitFor(() => {
+				expect(toasts.some((event) => event.level === 'error')).toBe(true);
+			});
+
+			expect(activeWatchers(service).get(dir)).toBe(createdWatchers.at(-1));
+			expect(createdWatchers.length).toBe(5);
+			expect((await restartAttempts(service)).get(dir)).toBe(3);
+		});
+
+		it('does not recreate a directory removed from config while recovery is pending', async () => {
+			const service = createService();
+			await service.init();
+			await service.start();
+
+			const { dir, watcher } = firstStartedWatcher();
+			await service.removeWatchDir(dir);
+
+			watcher.emitError(new Error('late error after config removal'), dir);
+			await checkWatcherHealth(service);
+
+			expect(activeWatchers(service).has(dir)).toBe(false);
+			expect(createdDirs.filter((createdDir) => createdDir === dir)).toHaveLength(1);
+		});
+
+		it('does not restart a watcher after the service has stopped', async () => {
+			const service = createService();
+			await service.init();
+			await service.start();
+
+			const { dir, watcher } = firstStartedWatcher();
+			await service.stop();
+
+			watcher.emitError(new Error('late close after stop'), dir);
+			await checkWatcherHealth(service);
+
+			expect(createdWatchers.length).toBe(2);
+			expect(activeWatchers(service).has(dir)).toBe(false);
+		});
+
+		it('emits a permanent failure after repeated restart failures', async () => {
+			configureWatcher = (watcher) => {
+				if (createdWatchers.length >= 2) {
+					watcher.startError = new Error('watch descriptor exhausted');
+				}
+			};
+
+			const service = createService();
+			await service.init();
+			await service.start();
+
+			const toasts: ServiceToastEvent[] = [];
+			service.on('toast', (event) => toasts.push(event));
+
+			const { dir, watcher } = firstStartedWatcher();
+			watcher.emitError(new Error('fsevents stream closed'), dir);
+
+			await vi.waitFor(() => {
+				expect(activeWatchers(service).has(dir)).toBe(false);
+			});
+			await checkWatcherHealth(service);
+			await checkWatcherHealth(service);
+			await checkWatcherHealth(service);
+
+			expect(activeWatchers(service).has(dir)).toBe(false);
+			expect(
+				toasts.some(
+					(event) => event.level === 'error' && event.message.includes('failed permanently'),
+				),
+			).toBe(true);
+		});
 	});
 
 	it('profile with action: rename (or missing) triggers rename only', async () => {
@@ -284,7 +577,9 @@ describe('NamefixService', () => {
 			size: 10,
 		});
 
-		await delay(25);
+		await vi.waitFor(() => {
+			expect(events).toHaveLength(1);
+		});
 		expect(events).toHaveLength(1);
 		expect(events[0]?.kind).toBe('preview');
 		expect(mockConverter.convert).not.toHaveBeenCalled();
@@ -357,7 +652,9 @@ describe('NamefixService', () => {
 				size: 100,
 			});
 
-			await delay(50);
+			await vi.waitFor(() => {
+				expect(events.some((e) => e.kind === 'trashed')).toBe(true);
+			});
 
 			expect(mockConverter.convert).toHaveBeenCalledWith(srcPath, { outputFormat: 'jpeg' });
 			const converted = events.find((e) => e.kind === 'converted');
@@ -391,7 +688,9 @@ describe('NamefixService', () => {
 				size: 100,
 			});
 
-			await delay(25);
+			await vi.waitFor(() => {
+				expect(events).toHaveLength(1);
+			});
 			expect(events).toHaveLength(1);
 			const ev = events[0];
 			expect(ev?.kind).toBe('preview');
@@ -425,7 +724,9 @@ describe('NamefixService', () => {
 				size: 100,
 			});
 
-			await delay(50);
+			await vi.waitFor(() => {
+				expect(events).toHaveLength(1);
+			});
 
 			expect(events).toHaveLength(1);
 			const ev = events[0];
@@ -471,7 +772,9 @@ describe('NamefixService', () => {
 				size: 100,
 			});
 
-			await delay(50);
+			await vi.waitFor(() => {
+				expect(toastEvents.some((e) => e.level === 'warn')).toBe(true);
+			});
 
 			const converted = fileEvents.find((e) => e.kind === 'converted');
 			expect(converted).toBeDefined();

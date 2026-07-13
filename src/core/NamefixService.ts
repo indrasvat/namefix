@@ -1,28 +1,28 @@
-import path from 'node:path';
-import os from 'node:os';
 import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import type {
 	IConfig,
 	IConfigStore,
-	IWatchService,
 	ILogger,
 	IProfile,
+	IWatchService,
 	WatchServiceErrorHandler,
 } from '../types/index.js';
-import { ConfigStore } from './config/ConfigStore.js';
-import { Logger } from './log/Logger.js';
-import { EventBus } from './events/EventBus.js';
-import { RenameService } from './rename/RenameService.js';
-import { Matcher, ProfileMatcher } from './rename/Matcher.js';
-import { FsSafe } from './fs/FsSafe.js';
-import { WatchService } from './fs/WatchService.js';
-import { JournalStore } from './journal/JournalStore.js';
-import { ConversionService } from './convert/ConversionService.js';
-import { TrashService } from './convert/TrashService.js';
 import type { ServiceEventMap, ServiceStatus } from '../types/service.js';
 import { TypedEmitter } from '../utils/TypedEmitter.js';
 import { delay } from '../utils/async.js';
 import { pathExists } from '../utils/fs.js';
+import { ConfigStore } from './config/ConfigStore.js';
+import { ConversionService } from './convert/ConversionService.js';
+import { TrashService } from './convert/TrashService.js';
+import { EventBus } from './events/EventBus.js';
+import { FsSafe } from './fs/FsSafe.js';
+import { WatchService } from './fs/WatchService.js';
+import { JournalStore } from './journal/JournalStore.js';
+import { Logger } from './log/Logger.js';
+import { Matcher, ProfileMatcher } from './rename/Matcher.js';
+import { RenameService } from './rename/RenameService.js';
 
 /**
  * Shared orchestrator responsible for configuration, directory watching, and rename lifecycles.
@@ -355,6 +355,12 @@ export class NamefixService {
 				this.emit('toast', {
 					level: 'warn',
 					message: `Watcher issue for ${path.basename(directory)}: ${error.message}`,
+				});
+				this.recoverWatcher(dir, watcher).catch((err) => {
+					this.logger.error('Watcher recovery failed', {
+						dir,
+						error: err instanceof Error ? err.message : String(err),
+					});
 				});
 			});
 			this.watcherErrorUnsubscribers.set(dir, unsubscribe);
@@ -913,12 +919,15 @@ export class NamefixService {
 		if (!this.running) return;
 
 		const unhealthyDirs: string[] = [];
+		const desiredDirs = this.getWatchDirs(this.getConfig());
 		for (const [dir, watcher] of this.watchers) {
+			let healthy = true;
 			// Check if watcher has isHealthy method
 			if (typeof watcher.isHealthy === 'function') {
 				if (!watcher.isHealthy()) {
 					this.logger.warn('Watcher unhealthy', { dir });
 					unhealthyDirs.push(dir);
+					healthy = false;
 					continue;
 				}
 			}
@@ -929,10 +938,36 @@ export class NamefixService {
 			} catch {
 				this.logger.warn('Watch directory no longer accessible', { dir });
 				unhealthyDirs.push(dir);
+				healthy = false;
+			}
+
+			if (healthy && this.watcherRestartAttempts.get(dir)) {
+				// A restart is only considered stable after it survives until a later health check.
+				// This keeps open-then-immediate-error loops bounded by MAX_RESTART_ATTEMPTS.
+				this.watcherRestartAttempts.set(dir, 0);
 			}
 		}
 
-		for (const dir of unhealthyDirs) {
+		for (const dir of desiredDirs) {
+			if (!this.watchers.has(dir)) {
+				this.logger.warn('Watch directory has no active watcher', { dir });
+				unhealthyDirs.push(dir);
+			}
+		}
+
+		for (const dir of Array.from(new Set(unhealthyDirs))) {
+			await this.recoverWatcher(dir, this.watchers.get(dir));
+		}
+	}
+
+	private async recoverWatcher(dir: string, expectedWatcher?: IWatchService): Promise<void> {
+		await this.withWatcherLock(async () => {
+			if (!this.running) return;
+			if (!this.getWatchDirs(this.getConfig()).includes(dir)) return;
+
+			const currentWatcher = this.watchers.get(dir);
+			if (expectedWatcher && currentWatcher !== expectedWatcher) return;
+
 			const attempts = this.watcherRestartAttempts.get(dir) ?? 0;
 			if (attempts >= NamefixService.MAX_RESTART_ATTEMPTS) {
 				this.logger.error('Max restart attempts reached for watcher', { dir, attempts });
@@ -940,33 +975,35 @@ export class NamefixService {
 					level: 'error',
 					message: `Watcher for ${path.basename(dir)} failed permanently. Please check directory.`,
 				});
-				continue;
+				return;
 			}
 
 			this.watcherRestartAttempts.set(dir, attempts + 1);
 			this.logger.warn('Restarting unhealthy watcher', { dir, attempt: attempts + 1 });
 
-			const oldWatcher = this.watchers.get(dir);
-			if (oldWatcher) {
-				await this.stopWatcher(dir, oldWatcher);
+			if (currentWatcher) {
+				await this.stopWatcher(dir, currentWatcher);
 			}
 
 			try {
 				await this.startWatcher(dir);
-				// Reset attempts on successful restart
-				this.watcherRestartAttempts.set(dir, 0);
+				// Do not reset attempts here: fs.watch can open successfully and then fail
+				// asynchronously. The next healthy check above proves the watcher stayed usable.
 				this.emit('toast', {
 					level: 'info',
 					message: `Watcher recovered for ${path.basename(dir)}`,
 				});
 				this.emitStatus();
 			} catch (err) {
+				const failedWatcher = this.watchers.get(dir);
+				if (failedWatcher) {
+					await this.stopWatcher(dir, failedWatcher);
+				}
 				this.logger.error('Failed to restart watcher', {
 					dir,
 					error: err instanceof Error ? err.message : String(err),
 				});
 			}
-		}
+		});
 	}
 }
-
