@@ -1,7 +1,8 @@
 import fs from 'node:fs/promises';
+import fscb from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { describe, it, beforeEach, afterEach, expect } from 'vitest';
+import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest';
 import { ConfigStore } from './ConfigStore.js';
 
 let tempRoot: string;
@@ -15,6 +16,7 @@ beforeEach(async () => {
 afterEach(async () => {
 	process.env.NAMEFIX_HOME = undefined;
 	process.env.NAMEFIX_LOGS = undefined;
+	vi.restoreAllMocks();
 	await fs.rm(tempRoot, { recursive: true, force: true });
 });
 
@@ -218,5 +220,133 @@ describe('ConfigStore', () => {
 		expect(heicProfile?.action).toBe('convert');
 		expect(heicProfile?.pattern).toBe('*.heic');
 		expect(heicProfile?.priority).toBe(0);
+	});
+
+	it('migrates legacy include patterns into profiles and sanitizes invalid scalar fields', async () => {
+		const configHome = process.env.NAMEFIX_HOME;
+		if (!configHome) throw new Error('NAMEFIX_HOME should be defined');
+		await fs.mkdir(configHome, { recursive: true });
+		await fs.writeFile(
+			path.join(configHome, 'config.json'),
+			JSON.stringify({
+				watchDir: '',
+				watchDirs: [path.join(tempRoot, 'watch'), ' ', path.join(tempRoot, 'watch')],
+				prefix: 'Capture',
+				include: ['Capture*', 'Client*'],
+				exclude: 'not-an-array',
+				dryRun: 'yes',
+				theme: '',
+				launchOnLogin: 'no',
+				profiles: [],
+			}),
+			'utf8',
+		);
+
+		const store = new ConfigStore();
+		const cfg = await store.get();
+
+		expect(cfg.watchDirs).toEqual([path.join(tempRoot, 'watch')]);
+		expect(cfg.watchDir).toBe(path.join(tempRoot, 'watch'));
+		expect(cfg.exclude).toEqual([]);
+		expect(cfg.dryRun).toBe(false);
+		expect(cfg.theme).toBe('default');
+		expect(cfg.launchOnLogin).toBe(false);
+		expect(
+			cfg.profiles.filter((p) => p.name.startsWith('Migrated:')).map((p) => p.pattern),
+		).toEqual(['Capture*', 'Client*']);
+	});
+
+	it('falls back to default profiles when persisted profiles are invalid', async () => {
+		const configHome = process.env.NAMEFIX_HOME;
+		if (!configHome) throw new Error('NAMEFIX_HOME should be defined');
+		await fs.mkdir(configHome, { recursive: true });
+		await fs.writeFile(
+			path.join(configHome, 'config.json'),
+			JSON.stringify({
+				watchDir: path.join(tempRoot, 'watch'),
+				watchDirs: [path.join(tempRoot, 'watch')],
+				prefix: '',
+				include: [],
+				profiles: [
+					{
+						id: 'bad-action',
+						name: 'Bad Action',
+						enabled: true,
+						pattern: '*',
+						template: '<prefix>',
+						prefix: 'Bad',
+						priority: 1,
+						action: 'delete-everything',
+					},
+				],
+			}),
+			'utf8',
+		);
+
+		const store = new ConfigStore();
+		const cfg = await store.get();
+
+		expect(cfg.prefix).toBe('Screenshot');
+		expect(cfg.include).toEqual(['Screenshot*']);
+		expect(cfg.profiles.map((p) => p.id)).toContain('heic-convert');
+		expect(cfg.profiles.map((p) => p.id)).not.toContain('bad-action');
+	});
+
+	it('persists updates even when fsync and chmod hardening fail', async () => {
+		const store = new ConfigStore();
+		await store.get();
+		const open = vi.spyOn(fs, 'open').mockRejectedValueOnce(new Error('fsync unavailable'));
+		const chmod = vi.spyOn(fscb, 'chmodSync').mockImplementationOnce(() => {
+			throw new Error('chmod unavailable');
+		});
+
+		const updated = await store.set({ theme: 'contrast' });
+
+		expect(updated.theme).toBe('contrast');
+		expect(open).toHaveBeenCalled();
+		expect(chmod).toHaveBeenCalled();
+		const configHome = process.env.NAMEFIX_HOME;
+		if (!configHome) throw new Error('NAMEFIX_HOME should be defined');
+		const persisted = JSON.parse(await fs.readFile(path.join(configHome, 'config.json'), 'utf8'));
+		expect(persisted.theme).toBe('contrast');
+	});
+
+	it('keeps in-memory updates when persistence is unavailable', async () => {
+		const store = new ConfigStore();
+		await store.get();
+		vi.spyOn(fs, 'writeFile').mockRejectedValueOnce(new Error('readonly'));
+		const listener = vi.fn();
+		store.onChange(listener);
+
+		const updated = await store.set({ theme: 'readonly-mode' });
+
+		expect(updated.theme).toBe('readonly-mode');
+		expect(listener).toHaveBeenCalledWith(expect.objectContaining({ theme: 'readonly-mode' }));
+		await expect(store.get()).resolves.toMatchObject({ theme: 'readonly-mode' });
+	});
+
+	it('falls back to defaults when reading config fails for non-ENOENT reasons', async () => {
+		vi.spyOn(fs, 'readFile').mockRejectedValueOnce(
+			Object.assign(new Error('permission denied'), { code: 'EACCES' }),
+		);
+
+		const store = new ConfigStore();
+		const cfg = await store.get();
+
+		expect(cfg.prefix).toBe('Screenshot');
+		expect(cfg.profiles.map((p) => p.id)).toContain('heic-convert');
+	});
+
+	it('immediately notifies listeners registered after config is loaded', async () => {
+		const store = new ConfigStore();
+		const cfg = await store.get();
+		const listener = vi.fn();
+
+		const unsubscribe = store.onChange(listener);
+		unsubscribe();
+		await store.set({ theme: 'listener-test' });
+
+		expect(listener).toHaveBeenCalledTimes(1);
+		expect(listener).toHaveBeenCalledWith(cfg);
 	});
 });

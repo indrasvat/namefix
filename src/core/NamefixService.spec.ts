@@ -189,6 +189,14 @@ describe('NamefixService', () => {
 		});
 	}
 
+	function serviceWatchers(service: NamefixService): Map<string, StubWatcher> {
+		return (
+			service as unknown as {
+				watchers: Map<string, StubWatcher>;
+			}
+		).watchers;
+	}
+
 	it('starts watchers for all configured directories and emits running status', async () => {
 		const service = createService();
 		const initialConfig = await configStore.get();
@@ -291,6 +299,215 @@ describe('NamefixService', () => {
 			expect(watcher.stop).toHaveBeenCalled();
 			expect(watcher.dispose).toHaveBeenCalled();
 		}
+	});
+
+	it('toggles running state and persists simple boolean settings', async () => {
+		const service = createService();
+		const statuses: ServiceStatus[] = [];
+		await service.init();
+		service.on('status', (status) => statuses.push(status));
+
+		await service.toggleRunning();
+		expect(service.getStatus().running).toBe(true);
+		await expect(service.setDryRun(false)).resolves.toMatchObject({ dryRun: false });
+		await expect(service.setLaunchOnLogin(true)).resolves.toMatchObject({ launchOnLogin: true });
+		await service.toggleRunning();
+
+		expect(service.getStatus()).toMatchObject({
+			running: false,
+			dryRun: false,
+			launchOnLogin: true,
+		});
+		expect(statuses.some((status) => status.running)).toBe(true);
+		expect(statuses.at(-1)?.running).toBe(false);
+	});
+
+	it('manages profiles by add, update, toggle, reorder, and delete', async () => {
+		const service = createService();
+		await service.init();
+		const baseProfile = service.getProfile('screenshots');
+		expect(baseProfile).toBeDefined();
+		if (!baseProfile) throw new Error('profile missing');
+
+		const customProfile = {
+			...baseProfile,
+			id: 'client-captures',
+			name: 'Client Captures',
+			pattern: 'Client*',
+			priority: 5,
+		};
+
+		await service.setProfile(customProfile);
+		expect(service.getProfile('client-captures')?.pattern).toBe('Client*');
+		await service.setProfile({ ...customProfile, pattern: 'Client Capture*' });
+		expect(service.getProfile('client-captures')?.pattern).toBe('Client Capture*');
+		await service.toggleProfile('client-captures', false);
+		expect(service.getProfile('client-captures')?.enabled).toBe(false);
+		await service.toggleProfile('missing-profile', true);
+		await service.reorderProfiles(['client-captures', 'screenshots']);
+		expect(service.getProfile('client-captures')?.priority).toBe(1);
+		expect(service.getProfile('screenshots')?.priority).toBe(2);
+		await service.deleteProfile('client-captures');
+		expect(service.getProfile('client-captures')).toBeUndefined();
+	});
+
+	it('normalizes watch directory edits and preserves primary directory rules', async () => {
+		const service = createService();
+		await service.init();
+		const initial = service.getConfig();
+		const first = initial.watchDirs[0];
+		const second = initial.watchDirs[1];
+		if (!first || !second) throw new Error('expected two watch dirs');
+
+		await service.addWatchDir('   ');
+		expect(service.getConfig().watchDirs).toEqual(initial.watchDirs);
+		await service.addWatchDir(second);
+		expect(service.getConfig().watchDir).toBe(second);
+
+		const homeRelative = '~/Namefix Tests';
+		await service.setPrimaryWatchDir(homeRelative);
+		const homeResolved = path.resolve(os.homedir(), 'Namefix Tests');
+		expect(service.getConfig().watchDir).toBe(homeResolved);
+		expect(service.getConfig().watchDirs[0]).toBe(homeResolved);
+
+		await service.removeWatchDir(homeResolved);
+		expect(service.getConfig().watchDir).toBe(second);
+		await service.setWatchDirs([first, first, ' ', second]);
+		expect(service.getConfig().watchDirs).toEqual([first, second]);
+	});
+
+	it('starts cleanly with no watch directories and reports a paused watcher set', async () => {
+		configStore = new MemoryConfigStore({ ...baseConfig(), watchDir: '', watchDirs: [] });
+		const service = createService();
+		await service.init();
+		const statuses: ServiceStatus[] = [];
+		service.on('status', (status) => statuses.push(status));
+
+		await service.start();
+
+		expect(watchers.size).toBe(0);
+		expect(statuses.at(-1)).toMatchObject({ running: true, directories: [] });
+		expect(noopLogger.warn).toHaveBeenCalledWith('No watch directories configured');
+	});
+
+	it('logs cleanup failures but still removes watchers on stop', async () => {
+		const service = createService();
+		await service.init();
+		await service.start();
+
+		const firstWatcher = createdWatchers[0];
+		if (!firstWatcher) throw new Error('watcher missing');
+		firstWatcher.stop.mockRejectedValueOnce(new Error('stop failed'));
+		firstWatcher.dispose.mockRejectedValueOnce(new Error('dispose failed'));
+
+		await service.stop();
+
+		expect(serviceWatchers(service).has(createdDirs[0] ?? '')).toBe(false);
+		expect(noopLogger.error).toHaveBeenCalledWith(
+			expect.objectContaining({ message: 'stop failed' }),
+		);
+		expect(noopLogger.error).toHaveBeenCalledWith(
+			expect.objectContaining({ message: 'dispose failed' }),
+		);
+	});
+
+	it('emits a warning and cleans up when watcher startup fails', async () => {
+		const cfg = await configStore.get();
+		const onlyDir = cfg.watchDirs[0];
+		if (!onlyDir) throw new Error('watch dir missing');
+		configStore = new MemoryConfigStore({ ...cfg, watchDir: onlyDir, watchDirs: [onlyDir] });
+		configureWatcher = (watcher) => {
+			watcher.startError = new Error('too many open files');
+		};
+		const service = createService();
+		const toasts: ServiceToastEvent[] = [];
+		await service.init();
+		service.on('toast', (event) => toasts.push(event));
+
+		await service.start();
+
+		expect(serviceWatchers(service).has(onlyDir)).toBe(false);
+		expect(createdWatchers[0]?.stop).toHaveBeenCalledTimes(1);
+		expect(toasts).toContainEqual({
+			level: 'warn',
+			message: `Could not watch ${path.basename(onlyDir)}`,
+		});
+	});
+
+	it('falls back to legacy include/exclude matching when profiles are absent', async () => {
+		const cfg = await configStore.get();
+		const onlyDir = cfg.watchDirs[0];
+		if (!onlyDir) throw new Error('watch dir missing');
+		configStore = new MemoryConfigStore({
+			...cfg,
+			watchDir: onlyDir,
+			watchDirs: [onlyDir],
+			profiles: [],
+			include: ['Legacy*'],
+			exclude: ['*skip*'],
+			dryRun: true,
+		});
+		const service = createService();
+		const events: ServiceFileEvent[] = [];
+		await service.init();
+		await service.start();
+		service.on('file', (event) => events.push(event));
+		const watcher = watchers.get(onlyDir);
+		if (!watcher) throw new Error('watcher missing');
+
+		watcher.trigger({
+			path: path.join(onlyDir, 'Legacy Capture.png'),
+			birthtimeMs: new Date(2026, 6, 13, 10, 11, 12).getTime(),
+			mtimeMs: Date.now(),
+			size: 20,
+		});
+		watcher.trigger({
+			path: path.join(onlyDir, 'Legacy skip.png'),
+			birthtimeMs: Date.now(),
+			mtimeMs: Date.now(),
+			size: 20,
+		});
+
+		await vi.waitFor(() => {
+			expect(events).toHaveLength(1);
+		});
+		expect(events[0]).toMatchObject({
+			kind: 'preview',
+			file: 'Legacy Capture.png',
+		});
+	});
+
+	it('logs health monitor errors without crashing the interval', async () => {
+		vi.useFakeTimers();
+		const service = createService();
+		await service.init();
+		const checkWatcherHealth = vi
+			.spyOn(
+				service as unknown as {
+					checkWatcherHealth(): Promise<void>;
+				},
+				'checkWatcherHealth',
+			)
+			.mockRejectedValue(new Error('health check failed'));
+
+		(
+			service as unknown as {
+				startHealthMonitor(): void;
+				stopHealthMonitor(): void;
+			}
+		).startHealthMonitor();
+		await vi.advanceTimersByTimeAsync(30_000);
+		(
+			service as unknown as {
+				stopHealthMonitor(): void;
+			}
+		).stopHealthMonitor();
+		vi.useRealTimers();
+
+		expect(checkWatcherHealth).toHaveBeenCalledTimes(1);
+		expect(noopLogger.error).toHaveBeenCalledWith(
+			expect.objectContaining({ message: 'health check failed' }),
+		);
 	});
 
 	it('replaces a watcher immediately after it reports an error', async () => {
