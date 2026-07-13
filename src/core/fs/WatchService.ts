@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import type { FsSafe } from './FsSafe.js';
 import type { IWatchService, WatchEvent, WatchServiceErrorHandler } from '../../types/index';
+import type { FsSafe } from './FsSafe.js';
 
 export class WatchService implements IWatchService {
 	private watcher: fs.FSWatcher | null = null;
@@ -19,8 +19,10 @@ export class WatchService implements IWatchService {
 		this.stopCurrent();
 
 		this.watcher = fs.watch(this.dir, { persistent: true, recursive: false });
+		const watcher = this.watcher;
 
-		this.watcher.on('error', (error: Error) => {
+		watcher.on('error', (error: Error) => {
+			if (this.watcher !== watcher) return;
 			this.healthy = false;
 			for (const handler of this.errorHandlers) {
 				try {
@@ -31,7 +33,13 @@ export class WatchService implements IWatchService {
 			}
 		});
 
-		this.watcher.on('change', (_eventType, filename) => {
+		watcher.on('close', () => {
+			if (this.watcher !== watcher) return;
+			this.healthy = false;
+		});
+
+		watcher.on('change', (_eventType, filename) => {
+			if (this.watcher !== watcher) return;
 			if (!this.healthy || !filename) return;
 			const name = typeof filename === 'string' ? filename : filename.toString();
 			if (name.startsWith('.')) return;
