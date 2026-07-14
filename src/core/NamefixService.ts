@@ -415,10 +415,16 @@ export class NamefixService {
 
 	private applyConfig(cfg: IConfig) {
 		const normalizedDirs = this.normalizeDirs(cfg.watchDirs, cfg.watchDir);
-		const primaryDir = normalizedDirs[0] ?? cfg.watchDir;
+		const normalizedPrimary =
+			cfg.watchDir && cfg.watchDir.trim().length > 0 ? this.normalizePath(cfg.watchDir) : undefined;
+		const orderedDirs =
+			normalizedPrimary && normalizedDirs.includes(normalizedPrimary)
+				? [normalizedPrimary, ...normalizedDirs.filter((dir) => dir !== normalizedPrimary)]
+				: normalizedDirs;
+		const primaryDir = orderedDirs[0] ?? cfg.watchDir;
 		this.config = {
 			...cfg,
-			watchDirs: normalizedDirs,
+			watchDirs: orderedDirs,
 			watchDir: primaryDir,
 		};
 		// Initialize profile matcher if profiles exist

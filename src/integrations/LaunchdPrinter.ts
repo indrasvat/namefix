@@ -18,7 +18,7 @@ export const LaunchdPrinter = {
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>${label}</string>
+  <string>${escapeXml(label)}</string>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>

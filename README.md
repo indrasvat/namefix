@@ -156,8 +156,24 @@ GITHUB_TOKEN=<token> pnpm run release
 | `pnpm run menubar` | Start the Tauri dev server with Vite. |
 | `pnpm --filter @namefix/menu-bar run tauri:build` | Produce release bundles locally. |
 | `pnpm test` | Run Vitest suite. |
+| `pnpm run test:coverage` | Run Vitest with the 85% coverage gate. |
 | `pnpm run release` | Run semantic-release locally (requires `GITHUB_TOKEN`). |
 | `pnpm run biome` / `pnpm run format` / `pnpm run lint` | Biome code-quality tooling. |
+
+---
+
+## Test coverage
+
+CI runs `pnpm run test:coverage` for the Linux-testable shared service surface: `src/core`, `src/utils`, and `src/integrations`. TUI rendering, packaging scripts, generated build output, and native Tauri shell code are excluded from the Vitest gate because they require visual or macOS-specific coverage paths.
+
+Current coverage from the local gate:
+
+| Metric | Coverage |
+|--------|----------|
+| Statements | 88.88% |
+| Branches | 86.89% |
+| Functions | 97.43% |
+| Lines | 88.88% |
 
 ---
 

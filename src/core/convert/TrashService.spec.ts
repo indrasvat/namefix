@@ -82,6 +82,37 @@ describe('TrashService', () => {
 			expect(mockUnlink).toHaveBeenCalledWith('/Volumes/ext/photo.heic');
 		});
 
+		it('adds a numeric suffix when the Trash destination already exists', async () => {
+			mockAccess.mockImplementation(async (p) => {
+				const ps = String(p);
+				if (ps === '/Users/test/.Trash/photo.heic') return;
+				if (ps === '/Users/test/.Trash/photo 2.heic') return;
+				if (ps.startsWith('/Users/test/.Trash/')) {
+					throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+				}
+			});
+
+			const result = await svc.moveToTrash('/tmp/photo.heic');
+
+			expect(result.success).toBe(true);
+			expect(mockRename).toHaveBeenCalledWith('/tmp/photo.heic', '/Users/test/.Trash/photo 3.heic');
+		});
+
+		it('handles extensionless filename collisions', async () => {
+			mockAccess.mockImplementation(async (p) => {
+				const ps = String(p);
+				if (ps === '/Users/test/.Trash/archive') return;
+				if (ps.startsWith('/Users/test/.Trash/')) {
+					throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+				}
+			});
+
+			const result = await svc.moveToTrash('/tmp/archive');
+
+			expect(result.success).toBe(true);
+			expect(mockRename).toHaveBeenCalledWith('/tmp/archive', '/Users/test/.Trash/archive 2');
+		});
+
 		it('throws error when file does not exist', async () => {
 			mockAccess.mockRejectedValue(
 				Object.assign(new Error('ENOENT: no such file'), { code: 'ENOENT' }),
