@@ -1,3 +1,11 @@
+## [0.3.6](https://github.com/indrasvat/namefix/compare/v0.3.5...v0.3.6) (2026-07-21)
+
+
+### Bug Fixes
+
+* recover wedged file watchers ([#28](https://github.com/indrasvat/namefix/issues/28)) ([f9c3a46](https://github.com/indrasvat/namefix/commit/f9c3a462370bd85add67c3c18644206f3ca1835a))
+* **release:** restore hands-off semantic publishing ([#30](https://github.com/indrasvat/namefix/issues/30)) ([cf44b1f](https://github.com/indrasvat/namefix/commit/cf44b1f7e8c395b3c8c0f0500c3ac922c73ba17c))
+
 ## [0.3.5](https://github.com/indrasvat/namefix/compare/v0.3.4...v0.3.5) (2026-02-13)
 
 
