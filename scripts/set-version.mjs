@@ -20,11 +20,18 @@ if (!SEMVER_RE.test(semver)) {
 function updateJsonVersion(filePath) {
 	const absolute = path.resolve(filePath);
 	const contents = fs.readFileSync(absolute, 'utf8');
-	JSON.parse(contents);
+	const manifest = JSON.parse(contents);
+	if (typeof manifest.version !== 'string') {
+		throw new Error(`${filePath} does not contain a top-level string version field`);
+	}
 
-	const versionField = /^(\s*"version"\s*:\s*)"[^"]+"/m;
+	const rootIndent = contents.match(/^\{\r?\n([ \t]+)"/)?.[1];
+	if (!rootIndent) {
+		throw new Error(`${filePath} is not a supported pretty-printed JSON manifest`);
+	}
+	const versionField = new RegExp(`^(${rootIndent}"version"\\s*:\\s*)"[^"]+"`, 'm');
 	if (!versionField.test(contents)) {
-		throw new Error(`Unable to find a top-level version field in ${filePath}`);
+		throw new Error(`Unable to locate the top-level version field in ${filePath}`);
 	}
 	const updated = contents.replace(versionField, `$1"${semver}"`);
 

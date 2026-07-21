@@ -16,7 +16,9 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: >-
+    ${{ github.event_name == 'pull_request'
+        || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
 jobs:
   build:
@@ -29,8 +31,6 @@ jobs:
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 9
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -67,8 +67,6 @@ jobs:
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 9
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -82,5 +80,17 @@ jobs:
       - name: Install dependencies
         run: make install
 
+      - name: Confirm release is current
+        id: release-head
+        run: |
+          git fetch origin main
+          if [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping release superseded by a newer main commit."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run semantic-release
+        if: steps.release-head.outputs.current == 'true'
         run: make release-publish
