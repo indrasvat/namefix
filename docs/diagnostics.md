@@ -95,13 +95,15 @@ gh release view v0.2.3 --json assets
 
 ### Monitor Workflows
 ```bash
-gh run list --workflow Release --limit 5
+gh run list --workflow CI --limit 5
 gh run view <run-id> --job <job-id> --log | tail
 ```
 Common failures:
 - Node version mismatch (`semantic-release` engine requirement).
 - Missing Tauri artifacts (`artifacts/*.dmg cannot be read`).
 - GitHub token lacking `issues`/`pull-requests` scopes.
+- Cross-stack version mismatch (`make version-check` identifies the stale manifest).
+- Release commit rejected because `main` requires all changes to arrive through pull requests.
 
 ### Clean Up Manual Tags
 Semantic Release owns versioning. Remove stale manual tags if needed:
@@ -119,7 +121,7 @@ git push origin :refs/tags/v0.3.0
 | “App is damaged” dialog | Quarantine flag from unsigned build | `xattr -dr …` |
 | App never appears in menu bar | Panic during setup (`service-bridge.mjs` missing, etc.) | Inspect crash report, run via lldb |
 | CLI/service rename errors | Source file disappeared mid-rename | Tail `session.log`, reproduce with `namefix --dry-run` |
-| Release workflow fails | Missing artifacts or insufficient token scopes | Review workflow logs, ensure `collect-artifacts.mjs` copies bundles |
+| Release job fails | Missing artifacts, version skew, or insufficient token scopes | Review workflow logs; run `make version-check`; ensure `collect-artifacts.mjs` copies bundles |
 | Semantic-release skips version | No `feat`/`fix`/`BREAKING` commits | Merge a conventional commit that bumps version |
 
 ---

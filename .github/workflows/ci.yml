@@ -9,35 +9,88 @@ on:
   pull_request:
     branches:
       - '*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: >-
+    ${{ github.event_name == 'pull_request'
+        || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
-    env:
-      PNPM_HOME: ~/.local/share/pnpm
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
+        uses: pnpm/action-setup@v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22.14.0
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: make install
 
-      - name: Lint
-        run: pnpm exec biome lint
+      - name: Run CI checks
+        run: make ci
 
-      - name: Build
-        run: pnpm run build
+  release:
+    name: Release
+    if: >-
+      ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main')
+          || github.event_name == 'workflow_dispatch' }}
+    needs: build
+    runs-on: macos-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      HUSKY: '0'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-      - name: Test with coverage
-        run: pnpm run test:coverage
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.14.0
+          cache: 'pnpm'
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Confirm release is current
+        id: release-head
+        run: |
+          git fetch origin main
+          if [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping release superseded by a newer main commit."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run semantic-release
+        if: steps.release-head.outputs.current == 'true'
+        run: make release-publish
