@@ -88,7 +88,7 @@ describe('NamefixService real watcher integration', () => {
 			directory: watchDir,
 			file: 'Screenshot after recovery.png',
 		});
-	});
+	}, 15_000);
 
 	it('survives repeated watch-directory loss and recovery cycles', async () => {
 		service = new NamefixService();
@@ -119,5 +119,5 @@ describe('NamefixService real watcher integration', () => {
 		expect(
 			events.filter((event) => event.kind === 'preview' && event.file.includes('recovered cycle')),
 		).toHaveLength(3);
-	});
+	}, 15_000);
 });

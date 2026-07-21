@@ -132,17 +132,18 @@ Outputs appear under `apps/menu-bar/src-tauri/target/release/bundle/macos/`:
 
 ## Release workflow
 
-Releases are automated via [semantic-release](https://semantic-release.gitbook.io/semantic-release/). Push (or merge) to `main` using [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) messages and the `Release` workflow will:
+Releases are automated via [semantic-release](https://semantic-release.gitbook.io/semantic-release/). Push (or merge) to `main` using [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) messages and the release job will run after CI succeeds:
 
 1. Determine the next semantic version.
-2. Update `package.json`, `apps/menu-bar/package.json`, the Tauri config, and `CHANGELOG.md`.
-3. Build the CLI and the Tauri bundle, packaging unsigned `.app.zip` and `.dmg` artifacts.
-4. Publish a GitHub release with those artifacts and the generated changelog, pushing the version bump + tag back to `main`.
+2. Update both `package.json` files, the Tauri and Cargo manifests, `Cargo.lock`, and `CHANGELOG.md`.
+3. Verify that every Node and Tauri/Cargo version source agrees.
+4. Build the CLI and the Tauri bundle, packaging unsigned `.app.zip` and `.dmg` artifacts.
+5. Push the synchronized release commit and tag to `main`, then publish a GitHub release with the artifacts and generated notes.
 
 Local dry-run (requires a GitHub token with `repo` scope):
 
 ```bash
-GITHUB_TOKEN=<token> pnpm run release
+GITHUB_TOKEN=<token> make release
 ```
 
 ---
@@ -151,14 +152,15 @@ GITHUB_TOKEN=<token> pnpm run release
 
 | Command | Description |
 |---------|-------------|
-| `pnpm run build` | Compile the shared TypeScript sources (CLI/TUI). |
-| `pnpm run typecheck` | Type-only check with `tsc --noEmit`. |
-| `pnpm run menubar` | Start the Tauri dev server with Vite. |
-| `pnpm --filter @namefix/menu-bar run tauri:build` | Produce release bundles locally. |
-| `pnpm test` | Run Vitest suite. |
-| `pnpm run test:coverage` | Run Vitest with the 85% coverage gate. |
-| `pnpm run release` | Run semantic-release locally (requires `GITHUB_TOKEN`). |
-| `pnpm run biome` / `pnpm run format` / `pnpm run lint` | Biome code-quality tooling. |
+| `make build` | Compile the shared TypeScript sources (CLI/TUI). |
+| `make typecheck` | Type-only check with `tsc --noEmit`. |
+| `make dev-app` | Start the Tauri development app. |
+| `make build-app` | Produce release bundles locally. |
+| `make test` | Run the Vitest suite. |
+| `make test-coverage` | Run Vitest with the 85% coverage gate. |
+| `make version-check` | Verify that Node, Tauri, and Cargo versions agree. |
+| `make release` | Run a semantic-release dry-run (requires `GITHUB_TOKEN`). |
+| `make fmt` / `make lint` | Run Biome formatting or linting. |
 
 ---
 

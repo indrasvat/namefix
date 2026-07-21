@@ -1,4 +1,4 @@
-.PHONY: help all build test lint fmt fmt-check check ci clean dev dev-app run-app release stage-resources install-hooks
+.PHONY: help all install build test test-coverage version-check lint fmt fmt-check check ci clean dev dev-app run-app release release-prepare release-publish stage-resources install-hooks
 
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
@@ -14,6 +14,10 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[32m%-20s\033[0m %s\n", $$1, $$2}'
 
 all: ci ## Run full CI pipeline (check + build)
+
+install: ## Install dependencies from the lockfile
+	@printf "\033[33mInstalling dependencies...\033[0m\n"
+	@$(PNPM) install --frozen-lockfile
 
 build: ## Build shared core and CLI
 	@printf "\033[33mBuilding shared core...\033[0m\n"
@@ -43,6 +47,14 @@ test: ## Run unit tests
 	@printf "\033[33mRunning tests...\033[0m\n"
 	@$(PNPM) test
 
+test-coverage: ## Run tests with the CI coverage gate
+	@printf "\033[33mRunning tests with coverage...\033[0m\n"
+	@$(PNPM) run test:coverage
+
+version-check: ## Verify Node, Tauri, and Cargo versions agree
+	@printf "\033[33mChecking cross-stack version consistency...\033[0m\n"
+	@$(NODE) scripts/check-version.mjs $(EXPECTED_VERSION)
+
 typecheck: ## Run TypeScript type checking
 	@printf "\033[33mRunning type check...\033[0m\n"
 	@$(PNPM) run typecheck
@@ -59,9 +71,9 @@ fmt-check: ## Check formatting (read-only)
 	@printf "\033[33mChecking format...\033[0m\n"
 	@$(PNPM) run format:check
 
-check: fmt-check lint typecheck test ## fmt-check + lint + typecheck + test
+check: fmt-check lint typecheck version-check test ## fmt-check + lint + typecheck + version-check + test
 
-ci: check build ## Run full CI pipeline
+ci: fmt-check lint typecheck version-check test-coverage build ## Run the full CI pipeline with coverage
 	@printf "\033[32mCI pipeline complete!\033[0m\n"
 
 clean: ## Clean build artifacts
@@ -84,4 +96,16 @@ install-hooks: ## Install git hooks via husky (idempotent)
 
 release: ## Run semantic-release dry-run
 	@printf "\033[33mRunning semantic-release dry-run...\033[0m\n"
-	@$(PNPM) run release --dry-run
+	@$(PNPM) run release --dry-run $(RELEASE_ARGS)
+
+release-prepare: ## Stamp VERSION, build release artifacts, and verify their version
+	@test -n "$(VERSION)" || { printf "\033[31mVERSION is required (for example, make release-prepare VERSION=0.3.6).\033[0m\n"; exit 2; }
+	@printf "\033[33mPreparing release v$(VERSION)...\033[0m\n"
+	@$(NODE) scripts/set-version.mjs "$(VERSION)"
+	@$(PNPM) --filter @namefix/menu-bar run tauri:build
+	@$(MAKE) version-check EXPECTED_VERSION="$(VERSION)"
+	@$(NODE) scripts/collect-artifacts.mjs
+
+release-publish: ## Publish the semantic release (CI only)
+	@printf "\033[33mPublishing semantic release...\033[0m\n"
+	@$(PNPM) run release

@@ -17,29 +17,24 @@ if (!SEMVER_RE.test(semver)) {
 	process.exit(1);
 }
 
-function updateJson(filePath, mutator) {
+function updateJsonVersion(filePath) {
 	const absolute = path.resolve(filePath);
-	const json = JSON.parse(fs.readFileSync(absolute, 'utf8'));
-	const updated = mutator(json) ?? json;
-	fs.writeFileSync(absolute, `${JSON.stringify(updated, null, 2)}\n`);
+	const contents = fs.readFileSync(absolute, 'utf8');
+	JSON.parse(contents);
+
+	const versionField = /^(\s*"version"\s*:\s*)"[^"]+"/m;
+	if (!versionField.test(contents)) {
+		throw new Error(`Unable to find a top-level version field in ${filePath}`);
+	}
+	const updated = contents.replace(versionField, `$1"${semver}"`);
+
+	fs.writeFileSync(absolute, updated);
 	console.log(`Updated ${filePath}`);
 }
 
-updateJson('package.json', (pkg) => {
-	pkg.version = semver;
-	return pkg;
-});
-
-updateJson('apps/menu-bar/package.json', (pkg) => {
-	pkg.version = semver;
-	return pkg;
-});
-
-const tauriConfigPath = path.resolve('apps/menu-bar/src-tauri/tauri.conf.json');
-const tauri = JSON.parse(fs.readFileSync(tauriConfigPath, 'utf8'));
-tauri.version = semver;
-fs.writeFileSync(tauriConfigPath, `${JSON.stringify(tauri, null, 2)}\n`);
-console.log('Updated apps/menu-bar/src-tauri/tauri.conf.json');
+updateJsonVersion('package.json');
+updateJsonVersion('apps/menu-bar/package.json');
+updateJsonVersion('apps/menu-bar/src-tauri/tauri.conf.json');
 
 const cargoTomlPath = path.resolve('apps/menu-bar/src-tauri/Cargo.toml');
 const cargo = fs.readFileSync(cargoTomlPath, 'utf8');
