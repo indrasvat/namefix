@@ -4,6 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 type ServiceStatus = {
 	running: boolean;
 	directories: string[];
+	degradedDirectories: string[];
 	dryRun: boolean;
 	launchOnLogin: boolean;
 };
@@ -228,13 +229,16 @@ function formatSummary(status: ServiceStatus): string {
 	const dirCount = status.directories.length;
 	const dirLabel = dirCount === 1 ? 'directory' : 'directories';
 	const dry = status.dryRun ? ' · dry run' : '';
+	const degraded = status.degradedDirectories.length
+		? ` · ${status.degradedDirectories.length} degraded`
+		: '';
 	if (!dirCount) {
 		return status.running
 			? `No directories configured${dry}`
 			: `Add a directory to get started${dry}`;
 	}
 	return status.running
-		? `Monitoring ${dirCount} ${dirLabel}${dry}`
+		? `Monitoring ${dirCount} ${dirLabel}${degraded}${dry}`
 		: `${dirCount} ${dirLabel} configured${dry}`;
 }
 
@@ -343,7 +347,11 @@ function renderStatus(status: ServiceStatus) {
 		metricDirectories.textContent = String(status.directories.length);
 	}
 	if (badgeDirs) {
-		badgeDirs.dataset.state = status.directories.length ? 'active' : 'muted';
+		badgeDirs.dataset.state = status.degradedDirectories.length
+			? 'warn'
+			: status.directories.length
+				? 'active'
+				: 'muted';
 	}
 
 	if (metricDryRun) {

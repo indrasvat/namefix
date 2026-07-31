@@ -145,7 +145,13 @@ function requireReady(label) {
 const handlers = {
 	async getStatus() {
 		if (!serviceReady || !service) {
-			return { running: false, directories: [], dryRun: false, launchOnLogin: false };
+			return {
+				running: false,
+				directories: [],
+				degradedDirectories: [],
+				dryRun: false,
+				launchOnLogin: false,
+			};
 		}
 		return service.getStatus();
 	},

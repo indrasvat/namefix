@@ -18,6 +18,117 @@ pub struct BridgeEvent {
     pub payload: Value,
 }
 
+enum ReceiveResult {
+    Event(BridgeEvent),
+    Lagged,
+    Closed,
+}
+
+async fn recv_next_event(receiver: &mut broadcast::Receiver<BridgeEvent>) -> ReceiveResult {
+    match receiver.recv().await {
+        Ok(event) => ReceiveResult::Event(event),
+        Err(broadcast::error::RecvError::Lagged(skipped)) => {
+            log::warn!("Bridge event receiver lagged; skipped {} events", skipped);
+            ReceiveResult::Lagged
+        }
+        Err(broadcast::error::RecvError::Closed) => ReceiveResult::Closed,
+    }
+}
+
+fn drain_retained_events(receiver: &mut broadcast::Receiver<BridgeEvent>) {
+    loop {
+        match receiver.try_recv() {
+            Ok(_) | Err(broadcast::error::TryRecvError::Lagged(_)) => continue,
+            Err(broadcast::error::TryRecvError::Empty | broadcast::error::TryRecvError::Closed) => {
+                return;
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn event_receiver_continues_after_lag() {
+        async_runtime::block_on(async {
+            let (tx, mut rx) = broadcast::channel(2);
+            for index in 0..3 {
+                let _ = tx.send(BridgeEvent {
+                    name: format!("event-{index}"),
+                    payload: Value::Null,
+                });
+            }
+
+            assert!(matches!(
+                recv_next_event(&mut rx).await,
+                ReceiveResult::Lagged
+            ));
+            let ReceiveResult::Event(event) = recv_next_event(&mut rx).await else {
+                panic!("channel remains open");
+            };
+            assert_eq!(event.name, "event-1");
+
+            let _ = tx.send(BridgeEvent {
+                name: "event-later".to_string(),
+                payload: Value::Null,
+            });
+            let _ = recv_next_event(&mut rx).await;
+            let ReceiveResult::Event(later) = recv_next_event(&mut rx).await else {
+                panic!("later event");
+            };
+            assert_eq!(later.name, "event-later");
+        });
+    }
+
+    #[test]
+    fn event_receiver_reports_lag_before_continuing() {
+        async_runtime::block_on(async {
+            let (tx, mut rx) = broadcast::channel(2);
+            for index in 0..3 {
+                let _ = tx.send(BridgeEvent {
+                    name: format!("event-{index}"),
+                    payload: Value::Null,
+                });
+            }
+
+            assert!(matches!(
+                recv_next_event(&mut rx).await,
+                ReceiveResult::Lagged
+            ));
+            assert!(matches!(
+                recv_next_event(&mut rx).await,
+                ReceiveResult::Event(_)
+            ));
+        });
+    }
+
+    #[test]
+    fn lag_recovery_drains_retained_events_before_resync() {
+        let (tx, mut rx) = broadcast::channel(2);
+        for index in 0..3 {
+            let _ = tx.send(BridgeEvent {
+                name: format!("status-{index}"),
+                payload: Value::Null,
+            });
+        }
+
+        async_runtime::block_on(async {
+            assert!(matches!(
+                recv_next_event(&mut rx).await,
+                ReceiveResult::Lagged
+            ));
+        });
+        drain_retained_events(&mut rx);
+
+        assert!(matches!(
+            rx.try_recv(),
+            Err(broadcast::error::TryRecvError::Empty)
+        ));
+    }
+}
+
 struct Inner {
     child: Mutex<Child>,
     stdin: Mutex<ChildStdin>,
@@ -289,11 +400,26 @@ pub type BridgeState = NodeBridge;
 pub async fn init_bridge(app_handle: &AppHandle) -> anyhow::Result<NodeBridge> {
     let bridge = NodeBridge::new(app_handle).await?;
     let mut rx = bridge.subscribe();
+    let status_bridge = bridge.clone();
     let emitter_handle = app_handle.clone();
     async_runtime::spawn(async move {
-        while let Ok(event) = rx.recv().await {
-            let event_name = format!("service://{}", event.name);
-            let _ = emitter_handle.emit(&event_name, event.payload);
+        loop {
+            match recv_next_event(&mut rx).await {
+                ReceiveResult::Event(event) => {
+                    let event_name = format!("service://{}", event.name);
+                    let _ = emitter_handle.emit(&event_name, event.payload);
+                }
+                ReceiveResult::Lagged => {
+                    drain_retained_events(&mut rx);
+                    match get_status(&status_bridge).await {
+                        Ok(status) => {
+                            let _ = emitter_handle.emit("service://status", status);
+                        }
+                        Err(err) => log::error!("Failed to resync status after bridge lag: {}", err),
+                    }
+                }
+                ReceiveResult::Closed => break,
+            }
         }
     });
     Ok(bridge)
@@ -303,6 +429,8 @@ pub async fn init_bridge(app_handle: &AppHandle) -> anyhow::Result<NodeBridge> {
 pub struct ServiceStatus {
   pub running: bool,
   pub directories: Vec<String>,
+  #[serde(rename = "degradedDirectories", default)]
+  pub degraded_directories: Vec<String>,
   #[serde(rename = "dryRun")]
   pub dry_run: bool,
   #[serde(rename = "launchOnLogin")]
