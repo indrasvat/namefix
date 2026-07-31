@@ -35,6 +35,17 @@ async fn recv_next_event(receiver: &mut broadcast::Receiver<BridgeEvent>) -> Rec
     }
 }
 
+fn drain_retained_events(receiver: &mut broadcast::Receiver<BridgeEvent>) {
+    loop {
+        match receiver.try_recv() {
+            Ok(_) | Err(broadcast::error::TryRecvError::Lagged(_)) => continue,
+            Err(broadcast::error::TryRecvError::Empty | broadcast::error::TryRecvError::Closed) => {
+                return;
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,6 +102,30 @@ mod tests {
                 ReceiveResult::Event(_)
             ));
         });
+    }
+
+    #[test]
+    fn lag_recovery_drains_retained_events_before_resync() {
+        let (tx, mut rx) = broadcast::channel(2);
+        for index in 0..3 {
+            let _ = tx.send(BridgeEvent {
+                name: format!("status-{index}"),
+                payload: Value::Null,
+            });
+        }
+
+        async_runtime::block_on(async {
+            assert!(matches!(
+                recv_next_event(&mut rx).await,
+                ReceiveResult::Lagged
+            ));
+        });
+        drain_retained_events(&mut rx);
+
+        assert!(matches!(
+            rx.try_recv(),
+            Err(broadcast::error::TryRecvError::Empty)
+        ));
     }
 }
 
@@ -374,12 +409,15 @@ pub async fn init_bridge(app_handle: &AppHandle) -> anyhow::Result<NodeBridge> {
                     let event_name = format!("service://{}", event.name);
                     let _ = emitter_handle.emit(&event_name, event.payload);
                 }
-                ReceiveResult::Lagged => match get_status(&status_bridge).await {
-                    Ok(status) => {
-                        let _ = emitter_handle.emit("service://status", status);
+                ReceiveResult::Lagged => {
+                    drain_retained_events(&mut rx);
+                    match get_status(&status_bridge).await {
+                        Ok(status) => {
+                            let _ = emitter_handle.emit("service://status", status);
+                        }
+                        Err(err) => log::error!("Failed to resync status after bridge lag: {}", err),
                     }
-                    Err(err) => log::error!("Failed to resync status after bridge lag: {}", err),
-                },
+                }
                 ReceiveResult::Closed => break,
             }
         }
