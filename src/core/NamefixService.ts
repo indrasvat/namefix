@@ -55,7 +55,9 @@ export class NamefixService {
 	private healthCheckInterval: ReturnType<typeof setInterval> | null = null;
 	private static readonly HEALTH_CHECK_INTERVAL_MS = 30_000; // 30 seconds
 	private static readonly MAX_RESTART_ATTEMPTS = 3;
+	private static readonly RESTART_COOLDOWN_MS = 5 * 60_000;
 	private watcherRestartAttempts = new Map<string, number>();
+	private watcherRetryAfter = new Map<string, number>();
 
 	constructor(
 		deps: {
@@ -103,6 +105,7 @@ export class NamefixService {
 		if (this.running) return;
 		this.running = true;
 		this.watcherRestartAttempts.clear();
+		this.watcherRetryAfter.clear();
 		await this.syncWatchers();
 		this.startHealthMonitor();
 		this.emitStatus();
@@ -250,6 +253,7 @@ export class NamefixService {
 		return {
 			running: this.running,
 			directories: this.getWatchDirs(cfg),
+			degradedDirectories: this.getDegradedDirectories(cfg),
 			dryRun: cfg.dryRun,
 			launchOnLogin: cfg.launchOnLogin,
 		};
@@ -302,6 +306,12 @@ export class NamefixService {
 					}
 				}
 			}
+			for (const dir of this.watcherRestartAttempts.keys()) {
+				if (!desiredSet.has(dir)) {
+					this.watcherRestartAttempts.delete(dir);
+					this.watcherRetryAfter.delete(dir);
+				}
+			}
 
 			if (!this.running || desiredDirs.length === 0) {
 				if (!this.running) {
@@ -352,6 +362,7 @@ export class NamefixService {
 		if (typeof watcher.onError === 'function') {
 			const unsubscribe = watcher.onError((error: Error, directory: string) => {
 				this.logger.error('Watcher error', { directory, error: error.message });
+				this.emitStatus();
 				this.emit('toast', {
 					level: 'warn',
 					message: `Watcher issue for ${path.basename(directory)}: ${error.message}`,
@@ -448,6 +459,14 @@ export class NamefixService {
 
 	private getWatchDirs(cfg: IConfig): string[] {
 		return this.normalizeDirs(cfg.watchDirs, cfg.watchDir);
+	}
+
+	private getDegradedDirectories(cfg: IConfig): string[] {
+		if (!this.running) return [];
+		return this.getWatchDirs(cfg).filter((dir) => {
+			const watcher = this.watchers.get(dir);
+			return !watcher || (typeof watcher.isHealthy === 'function' && !watcher.isHealthy());
+		});
 	}
 
 	private async handleWatchEvent(
@@ -872,6 +891,7 @@ export class NamefixService {
 		this.emit('status', {
 			running: this.running,
 			directories: dirs,
+			degradedDirectories: this.getDegradedDirectories(this.config),
 			dryRun: this.config.dryRun,
 			launchOnLogin: this.config.launchOnLogin,
 		});
@@ -951,6 +971,7 @@ export class NamefixService {
 				// A restart is only considered stable after it survives until a later health check.
 				// This keeps open-then-immediate-error loops bounded by MAX_RESTART_ATTEMPTS.
 				this.watcherRestartAttempts.set(dir, 0);
+				this.watcherRetryAfter.delete(dir);
 			}
 		}
 
@@ -974,14 +995,26 @@ export class NamefixService {
 			const currentWatcher = this.watchers.get(dir);
 			if (expectedWatcher && currentWatcher !== expectedWatcher) return;
 
-			const attempts = this.watcherRestartAttempts.get(dir) ?? 0;
+			let attempts = this.watcherRestartAttempts.get(dir) ?? 0;
 			if (attempts >= NamefixService.MAX_RESTART_ATTEMPTS) {
-				this.logger.error('Max restart attempts reached for watcher', { dir, attempts });
-				this.emit('toast', {
-					level: 'error',
-					message: `Watcher for ${path.basename(dir)} failed permanently. Please check directory.`,
-				});
-				return;
+				const now = Date.now();
+				const retryAfter = this.watcherRetryAfter.get(dir);
+				if (retryAfter !== undefined && retryAfter <= now) {
+					attempts = 0;
+					this.watcherRestartAttempts.set(dir, 0);
+					this.watcherRetryAfter.delete(dir);
+				} else if (retryAfter !== undefined) {
+					return;
+				} else {
+					this.watcherRetryAfter.set(dir, now + NamefixService.RESTART_COOLDOWN_MS);
+					this.logger.error('Watcher recovery paused after repeated failures', { dir, attempts });
+					this.emit('toast', {
+						level: 'error',
+						message: `Watcher for ${path.basename(dir)} is degraded. Retrying in 5 minutes.`,
+					});
+					this.emitStatus();
+					return;
+				}
 			}
 
 			this.watcherRestartAttempts.set(dir, attempts + 1);

@@ -58,6 +58,8 @@ impl TrayState {
 
         let directories_label = if status.directories.is_empty() {
             "Status: Paused (no directories)".to_string()
+        } else if !status.degraded_directories.is_empty() {
+            format!("Status: Degraded ({}/{})", status.degraded_directories.len(), status.directories.len())
         } else if status.running {
             format!("Status: Watching {} dir{}", status.directories.len(), if status.directories.len() == 1 { "" } else { "s" })
         } else {
@@ -193,7 +195,13 @@ pub fn init_tray(app: &AppHandle<Wry>, bridge: &BridgeState) -> tauri::Result<Tr
         .build(app)?;
 
     let initial_status = async_runtime::block_on(bridge::get_status(bridge))
-        .unwrap_or(ServiceStatus { running: false, directories: vec![], dry_run: false, launch_on_login: false });
+        .unwrap_or(ServiceStatus {
+            running: false,
+            directories: vec![],
+            degraded_directories: vec![],
+            dry_run: false,
+            launch_on_login: false,
+        });
 
     let tray_state = TrayState {
         tray: tray_icon,

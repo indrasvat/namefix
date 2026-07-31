@@ -1,8 +1,8 @@
-import fs from 'node:fs/promises';
 import fscb from 'node:fs';
+import fs from 'node:fs/promises';
 import path from 'node:path';
-import { stateDir } from '../../utils/paths.js';
 import type { IJournalStore } from '../../types/index';
+import { stateDir } from '../../utils/paths.js';
 import type { FsSafe } from '../fs/FsSafe.js';
 
 type Entry = { from: string; to: string; ts: number };
@@ -17,7 +17,17 @@ function journalPath() {
 
 export class JournalStore implements IJournalStore {
 	private cache: Entry[] = [];
-	constructor(private readonly fsSafe: FsSafe) {}
+	private loaded = false;
+	private operationLock: Promise<void> = Promise.resolve();
+
+	constructor(
+		private readonly fsSafe: FsSafe,
+		private readonly maxEntries = 1_000,
+	) {
+		if (!Number.isInteger(maxEntries) || maxEntries < 1) {
+			throw new Error('maxEntries must be a positive integer');
+		}
+	}
 
 	private async ensure() {
 		await fs.mkdir(journalDir(), { recursive: true });
@@ -28,24 +38,39 @@ export class JournalStore implements IJournalStore {
 		try {
 			const data = await fs.readFile(journalPath(), 'utf8');
 			const lines = data.split(/\r?\n/).filter(Boolean);
-			this.cache = lines.map((l) => JSON.parse(l));
+			this.cache = lines.map((l) => JSON.parse(l)).slice(-this.maxEntries);
+			if (lines.length > this.maxEntries) {
+				await this.rewrite(this.cache);
+			}
 		} catch (e: unknown) {
 			if (isNodeError(e) && e.code !== 'ENOENT') {
 				throw e;
 			}
 			this.cache = [];
 		}
+		this.loaded = true;
 		return this.cache;
 	}
 
 	async record(from: string, to: string): Promise<void> {
-		await this.ensure();
-		const entry: Entry = { from, to, ts: Date.now() };
-		await fs.appendFile(journalPath(), `${JSON.stringify(entry)}\n`, 'utf8');
-		this.cache.push(entry);
+		await this.withLock(async () => {
+			if (!this.loaded) await this.load();
+			const entry: Entry = { from, to, ts: Date.now() };
+			await fs.appendFile(journalPath(), `${JSON.stringify(entry)}\n`, 'utf8');
+			this.cache.push(entry);
+			if (this.cache.length > this.maxEntries) {
+				const retained = this.cache.slice(-this.maxEntries);
+				await this.rewrite(retained);
+				this.cache = retained;
+			}
+		});
 	}
 
 	async undo(): Promise<{ ok: boolean; reason?: string }> {
+		return await this.withLock(async () => this.undoUnlocked());
+	}
+
+	private async undoUnlocked(): Promise<{ ok: boolean; reason?: string }> {
 		if (!this.cache.length) await this.load();
 		const last = this.cache.pop();
 		if (!last) return { ok: false, reason: 'empty' };
@@ -55,8 +80,23 @@ export class JournalStore implements IJournalStore {
 			await this.rewrite();
 			return { ok: true };
 		} catch (e: unknown) {
+			this.cache.push(last);
 			const reason = e instanceof Error ? e.message : 'rename_failed';
 			return { ok: false, reason };
+		}
+	}
+
+	private async withLock<T>(fn: () => Promise<T>): Promise<T> {
+		const previous = this.operationLock;
+		let release: () => void = () => {};
+		this.operationLock = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		await previous;
+		try {
+			return await fn();
+		} finally {
+			release();
 		}
 	}
 
@@ -76,10 +116,9 @@ export class JournalStore implements IJournalStore {
 		return candidate;
 	}
 
-	private async rewrite() {
+	private async rewrite(entries: Entry[] = this.cache) {
 		const tmp = `${journalPath()}.tmp`;
-		const data =
-			this.cache.map((e) => JSON.stringify(e)).join('\n') + (this.cache.length ? '\n' : '');
+		const data = entries.map((e) => JSON.stringify(e)).join('\n') + (entries.length ? '\n' : '');
 		await fs.writeFile(tmp, data, 'utf8');
 		await fs.rename(tmp, journalPath());
 	}

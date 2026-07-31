@@ -3,6 +3,7 @@ import type { IConfig } from './index.js';
 export type ServiceStatus = {
 	running: boolean;
 	directories: string[];
+	degradedDirectories: string[];
 	dryRun: boolean;
 	launchOnLogin: boolean;
 };

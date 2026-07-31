@@ -738,7 +738,7 @@ describe('NamefixService', () => {
 			expect(activeWatchers(service).has(dir)).toBe(false);
 		});
 
-		it('emits a permanent failure after repeated restart failures', async () => {
+		it('emits a degraded status after repeated restart failures', async () => {
 			configureWatcher = (watcher) => {
 				if (createdWatchers.length >= 2) {
 					watcher.startError = new Error('watch descriptor exhausted');
@@ -764,10 +764,40 @@ describe('NamefixService', () => {
 
 			expect(activeWatchers(service).has(dir)).toBe(false);
 			expect(
-				toasts.some(
-					(event) => event.level === 'error' && event.message.includes('failed permanently'),
-				),
+				toasts.some((event) => event.level === 'error' && event.message.includes('is degraded')),
 			).toBe(true);
+		});
+
+		it('reports degraded directories and retries after the recovery cooldown', async () => {
+			let startsFail = true;
+			configureWatcher = (watcher) => {
+				if (createdWatchers.length >= 2 && startsFail) {
+					watcher.startError = new Error('watch descriptor exhausted');
+				}
+			};
+
+			const service = createService();
+			await service.init();
+			await service.start();
+			const { dir, watcher } = firstStartedWatcher();
+			watcher.emitError(new Error('fsevents stream closed'), dir);
+
+			await vi.waitFor(() => expect(activeWatchers(service).has(dir)).toBe(false));
+			await checkWatcherHealth(service);
+			await checkWatcherHealth(service);
+			await checkWatcherHealth(service);
+
+			expect(service.getStatus().degradedDirectories).toContain(dir);
+
+			startsFail = false;
+			(service as unknown as { watcherRetryAfter: Map<string, number> }).watcherRetryAfter.set(
+				dir,
+				Date.now() - 1,
+			);
+			await checkWatcherHealth(service);
+
+			expect(activeWatchers(service).has(dir)).toBe(true);
+			expect(service.getStatus().degradedDirectories).not.toContain(dir);
 		});
 	});
 
