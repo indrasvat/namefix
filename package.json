@@ -1,6 +1,6 @@
 {
 	"name": "namefix",
-	"version": "0.3.6",
+	"version": "0.3.7",
 	"description": "A minimal, fast, idiot‑proof macOS screenshot renamer (TUI)",
 	"license": "MIT",
 	"type": "module",

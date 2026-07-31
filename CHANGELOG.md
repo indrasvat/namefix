@@ -1,3 +1,10 @@
+## [0.3.7](https://github.com/indrasvat/namefix/compare/v0.3.6...v0.3.7) (2026-07-31)
+
+
+### Bug Fixes
+
+* keep Namefix reliable during long-running watcher failures ([#31](https://github.com/indrasvat/namefix/issues/31)) ([0ccffb2](https://github.com/indrasvat/namefix/commit/0ccffb2b677e18822aed80de5865bf45471fa5e6))
+
 ## [0.3.6](https://github.com/indrasvat/namefix/compare/v0.3.5...v0.3.6) (2026-07-21)
 
 
