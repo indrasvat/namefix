@@ -86,6 +86,21 @@ describe('JournalStore', () => {
 		await expect(store.undo()).resolves.toEqual({ ok: true });
 	});
 
+	it('does not restore a consumed entry when journal rewrite fails after undo', async () => {
+		const from = path.join(tempRoot, 'Screenshot 1.png');
+		const to = path.join(tempRoot, 'Screenshot_renamed.png');
+		await fs.writeFile(to, 'renamed');
+		const atomicRename = vi.spyOn(fsSafe, 'atomicRename').mockResolvedValue();
+
+		const store = new JournalStore(fsSafe);
+		await store.record(from, to);
+		vi.spyOn(fs, 'rename').mockRejectedValueOnce(new Error('journal unavailable'));
+
+		await expect(store.undo()).resolves.toEqual({ ok: true });
+		await expect(store.undo()).resolves.toEqual({ ok: false, reason: 'empty' });
+		expect(atomicRename).toHaveBeenCalledTimes(1);
+	});
+
 	it('reports empty when no journal entries exist', async () => {
 		const store = new JournalStore(fsSafe);
 		await expect(store.undo()).resolves.toEqual({ ok: false, reason: 'empty' });

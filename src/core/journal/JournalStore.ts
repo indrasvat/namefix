@@ -18,6 +18,7 @@ function journalPath() {
 export class JournalStore implements IJournalStore {
 	private cache: Entry[] = [];
 	private loaded = false;
+	private rewritePending = false;
 	private operationLock: Promise<void> = Promise.resolve();
 
 	constructor(
@@ -55,6 +56,7 @@ export class JournalStore implements IJournalStore {
 	async record(from: string, to: string): Promise<void> {
 		await this.withLock(async () => {
 			if (!this.loaded) await this.load();
+			await this.flushPendingRewrite();
 			const entry: Entry = { from, to, ts: Date.now() };
 			await fs.appendFile(journalPath(), `${JSON.stringify(entry)}\n`, 'utf8');
 			this.cache.push(entry);
@@ -71,19 +73,36 @@ export class JournalStore implements IJournalStore {
 	}
 
 	private async undoUnlocked(): Promise<{ ok: boolean; reason?: string }> {
-		if (!this.cache.length) await this.load();
+		if (!this.loaded) await this.load();
+		try {
+			await this.flushPendingRewrite();
+		} catch (e: unknown) {
+			return { ok: false, reason: e instanceof Error ? e.message : 'journal_rewrite_failed' };
+		}
 		const last = this.cache.pop();
 		if (!last) return { ok: false, reason: 'empty' };
 		try {
 			const target = await this.restoreTarget(last);
 			await this.fsSafe.atomicRename(last.to, target);
-			await this.rewrite();
-			return { ok: true };
 		} catch (e: unknown) {
 			this.cache.push(last);
 			const reason = e instanceof Error ? e.message : 'rename_failed';
 			return { ok: false, reason };
 		}
+		try {
+			await this.rewrite();
+		} catch {
+			// The filesystem operation already succeeded. Keep the entry consumed in memory
+			// and repair the durable journal before the next operation.
+			this.rewritePending = true;
+		}
+		return { ok: true };
+	}
+
+	private async flushPendingRewrite(): Promise<void> {
+		if (!this.rewritePending) return;
+		await this.rewrite();
+		this.rewritePending = false;
 	}
 
 	private async withLock<T>(fn: () => Promise<T>): Promise<T> {
